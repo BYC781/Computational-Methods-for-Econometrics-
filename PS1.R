@@ -10,7 +10,7 @@ p <- exp(b1*x1 - b2*x2) / (1+exp(b1*x1 - b2*x2))
 
 # construct y
 y <- rep(0, 400)
-y <- as.numeric((x1 + u1) > (x2 + u2)))
+y <- as.numeric((x1 + u1) > (x2 + u2))
 
 ## log_likelihood function
 loglik <- function(beta1, beta2){
