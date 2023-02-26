@@ -36,7 +36,48 @@ for (i in beta1_grid){
 argmax_beta
 
 
-##### BHHH #####
+##### BHHH 跑不出來啦幹#####
+## R=100, N=400
+R=100;N=400
+X1 <- matrix(rnorm(R*N, 0, 1), nrow=N)
+X2 <- matrix(rchisq(R*N, 1), nrow=N)
+U1 <- matrix(rgumbel(R*N), nrow=N)
+U2 <- matrix(rgumbel(R*N), nrow=N)
+Y <- matrix(0, nrow=N, ncol=R)
+Y <- as.matrix((X1 + U1) > (X2 + U2))
+Y <- ifelse(Y, 1, 0)
+
+beta_seq <- matrix(0, nrow=R, ncol=2)
+for (i in 1:R){
+    gradient <- function(beta1, beta2) {
+        p <- exp(beta1*X1[,i] - beta2*X2[,i]) /(1+exp(beta1*X1[,i] - beta2*X2[,i]))
+        g1 <- sum(Y[,i]*X1[,i] - X1[,i]*p)
+        g2 <- sum(Y[,i]*X2[,i] - X2[,i]*p)
+        return(matrix(c(g1, g2), ncol=1))
+    }
+    hessian <- function(beta1, beta2) {
+        p <- exp(beta1*X1[,i] - beta2*X2[,i]) /(1+exp(beta1*X1[,i] - beta2*X2[,i]))
+        H11 <- sum(x1^2*p*(1-p))
+        H12 <- sum(x1*x2*p*(1-p))
+        H22 <- sum(x2^2*p*(1-p))
+        return(matrix(c(H11, H12, H12, H22), ncol=2))
+    }
+    beta <- c(0, 0)
+    tol <- 1e-6
+    maxiter <- 100
+    for (j in 1:maxiter) {
+        g <- gradient(beta[1], beta[2])
+        H <- hessian(beta[1], beta[2])
+        BHHH <- g %*% t(g)
+        if (max(abs(g)) < tol) {
+            break
+        }
+        beta <- beta + solve(BHHH) %*% g
+    }
+    print(i)
+    beta_seq[i, 1] <- beta[1]
+    beta_seq[i, 2] <- beta[2]
+}
 
 
 ##################### q2-1 #####################
@@ -64,10 +105,10 @@ for (i in 1:B) {
     sample_idx <- sample(1:n, size = n, replace = TRUE)
     sample_data <- blk_wm_midwest[sample_idx, ]
     
-    # 使用取樣的資料擬合迴歸模型
+    # 使用取樣的資料跑logit
     fit <- glm(married ~ age + I(age^2) + education, data = sample_data, family = binomial())
     
-    # 提取所需的統計量（例如迴歸係數）
+    # 提取sd
     for(j in 1:4){
         se_boot_vec[i,j] <- summary(fit)$coefficients[j, 2]
     }
