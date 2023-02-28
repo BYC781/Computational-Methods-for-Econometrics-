@@ -39,13 +39,11 @@ argmax_beta
 ##### BHHH 跑不出來啦幹#####
 ## R=100, N=400
 R=100;N=400
-X1 <- matrix(rnorm(R*N, 0, 1), nrow=N)
+X1 <- matrix(rnorm(R*N), nrow=N)
 X2 <- matrix(rchisq(R*N, 1), nrow=N)
 U1 <- matrix(rgumbel(R*N), nrow=N)
 U2 <- matrix(rgumbel(R*N), nrow=N)
-Y <- matrix(0, nrow=N, ncol=R)
-Y <- as.matrix((X1 + U1) > (X2 + U2))
-Y <- ifelse(Y, 1, 0)
+Y <- as.matrix((X1 + U1) > (X2 + U2)) %>% ifelse(1,0)
 
 beta_seq <- matrix(0, nrow=R, ncol=2)
 for (i in 1:R){
@@ -74,7 +72,6 @@ for (i in 1:R){
         }
         beta <- beta + solve(BHHH) %*% g
     }
-    print(i)
     beta_seq[i, 1] <- beta[1]
     beta_seq[i, 2] <- beta[2]
 }
