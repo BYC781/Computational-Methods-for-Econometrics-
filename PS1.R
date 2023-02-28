@@ -1,4 +1,4 @@
-set.seed(7218)
+set.seed(1234)
 library(evd)
 ## R=1, N=400
 b1 <- 0.5; b2 <- -0.5; n =400
@@ -7,10 +7,7 @@ x2 <- rchisq(n, 1)
 u1 <- rgumbel(n)
 u2 <- rgumbel(n)
 
-p <- exp(b1*x1 - b2*x2) / (1+exp(b1*x1 - b2*x2))
-
 # construct y
-y <- rep(0, 400)
 y <- as.numeric((x1 + u1) > (x2 + u2))
 
 ## log_likelihood function
@@ -20,9 +17,9 @@ loglik <- function(beta1, beta2){
 }
 
 ##### grid search #####
-beta1_grid <- seq(from = -5, to = 5, by = 0.5)
-beta2_grid <- seq(from = -5, to = 5, by = 0.5)
-max_lik <- -1000
+beta1_grid <- seq(from = -5, to = 5, by = 0.1)
+beta2_grid <- seq(from = -5, to = 5, by = 0.1)
+max_lik <- -10000000
 argmax_beta <- c(0,0)
 for (i in beta1_grid){
     for(j in beta2_grid){
@@ -84,8 +81,9 @@ df$married <- ifelse(df$marital %in% c(1, 2, 3), 1, 0)
 blk_wm_midwest <- df %>% 
     filter(race==2, region == 2, female == 1)
 blk_wm_midwest_logit <- glm(married ~ age + I(age^2) + education, family = binomial, data = blk_wm_midwest)
-coef(blk_wm_midwest_logit) ## coef
-summary(blk_wm_midwest_logit)$coefficients[,2] ## std. error
+
+
+summary(blk_wm_midwest_logit)$coefficients[,1:2] ## coef and std. error
 
 
 ##################### q2-2 #####################
