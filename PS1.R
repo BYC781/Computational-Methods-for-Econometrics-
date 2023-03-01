@@ -13,18 +13,19 @@ y <- as.numeric((x1 + u1) > (x2 + u2))
 ## log_likelihood function
 loglik <- function(beta1, beta2){
     index <- beta1*x1 - beta2 * x2
-    sum(y*(index - log(1+exp(index))) - (1-y)* log(1+exp(index)))
+    ll <- sum(y*(index) - log(1+exp(index)))
+    return(-ll)
 }
 
 ##### grid search #####
 beta1_grid <- seq(from = -5, to = 5, by = 0.1)
 beta2_grid <- seq(from = -5, to = 5, by = 0.1)
-max_lik <- -10000000
+max_lik <- 10000000
 argmax_beta <- c(0,0)
 for (i in beta1_grid){
     for(j in beta2_grid){
         temp <- loglik(i,j)
-        if (temp >= max_lik){ 
+        if (temp < max_lik){ 
             max_lik <- temp
             argmax_beta <- c(i,j)
         }
