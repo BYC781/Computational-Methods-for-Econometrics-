@@ -1,4 +1,4 @@
-set.seed(1234)
+set.seed(3232)
 library(evd)
 ## R=1, N=400
 b1 <- 0.5; b2 <- -0.5; n =400
@@ -8,10 +8,10 @@ u1 <- rgumbel(n)
 u2 <- rgumbel(n)
 
 # construct y
-y <- as.numeric((x1 + u1) > (x2 + u2))
+y <- as.numeric((b1*x1 + u1) > (b2*x2 + u2))
 
 ## log_likelihood function
-loglik <- function(beta1, beta2){
+loglik <- function(beta1, beta2, x1, x2){
     index <- beta1*x1 - beta2 * x2
     ll <- sum(y*(index) - log(1+exp(index)))
     return(-ll)
@@ -24,7 +24,7 @@ max_lik <- 10000000
 argmax_beta <- c(0,0)
 for (i in beta1_grid){
     for(j in beta2_grid){
-        temp <- loglik(i,j)
+        temp <- loglik(i,j, x1, x2)
         if (temp < max_lik){ 
             max_lik <- temp
             argmax_beta <- c(i,j)
@@ -33,46 +33,52 @@ for (i in beta1_grid){
 }
 argmax_beta
 
-
-##### BHHH 跑不出來啦幹#####
+##### BHHH 跑出來啦!!!#####
 ## R=100, N=400
 R=100;N=400
 X1 <- matrix(rnorm(R*N), nrow=N)
 X2 <- matrix(rchisq(R*N, 1), nrow=N)
 U1 <- matrix(rgumbel(R*N), nrow=N)
 U2 <- matrix(rgumbel(R*N), nrow=N)
-Y <- as.matrix((X1 + U1) > (X2 + U2)) %>% ifelse(1,0)
+Y <- as.matrix((b1*X1 + U1) > (b2*X2 + U2)) %>% ifelse(1,0)
+
+logistic <- function(x) {
+    exp(x)/(1 + exp(x))
+}
+
+gradient <- function(beta1, beta2, X1, X2, Y) {
+    p <- logistic(beta1*X1 - beta2*X2)
+    g1 <- sum((Y-p)*X1)
+    g2 <- sum((-Y+p)*X2)
+    return(matrix(c(g1, g2), ncol=1))
+}
+
+BHHH <- function(beta1, beta2, X1, X2, Y) {
+    p <- logistic(beta1*X1 - beta2*X2)
+    b11 <- sum(X1^2 * (Y-p)^2)
+    b12 <- sum(X1*X2*(Y-p)*(p-Y))
+    b22 <- sum(X2^2 * (p-Y)^2)
+    return(matrix(c(b11, b12, b12, b22),nrow=2, ncol=2))
+}
 
 beta_seq <- matrix(0, nrow=R, ncol=2)
 for (i in 1:R){
-    gradient <- function(beta1, beta2) {
-        p <- exp(beta1*X1[,i] - beta2*X2[,i]) /(1+exp(beta1*X1[,i] - beta2*X2[,i]))
-        g1 <- sum(Y[,i]*X1[,i] - X1[,i]*p)
-        g2 <- sum(Y[,i]*X2[,i] - X2[,i]*p)
-        return(matrix(c(g1, g2), ncol=1))
-    }
-    hessian <- function(beta1, beta2) {
-        p <- exp(beta1*X1[,i] - beta2*X2[,i]) /(1+exp(beta1*X1[,i] - beta2*X2[,i]))
-        H11 <- sum(x1^2*p*(1-p))
-        H12 <- sum(x1*x2*p*(1-p))
-        H22 <- sum(x2^2*p*(1-p))
-        return(matrix(c(H11, H12, H12, H22), ncol=2))
-    }
     beta <- c(0, 0)
-    tol <- 1e-6
-    maxiter <- 100
+    tol <- 1e-4
+    maxiter <- 1000
     for (j in 1:maxiter) {
-        g <- gradient(beta[1], beta[2])
-        H <- hessian(beta[1], beta[2])
-        BHHH <- g %*% t(g)
+        g <- gradient(beta[1], beta[2], X1[,i], X2[,i], Y[,i])
+        bhhh <- BHHH(beta[1], beta[2], X1[,i], X2[,i], Y[,i])
         if (max(abs(g)) < tol) {
             break
         }
-        beta <- beta + solve(BHHH) %*% g
+        beta <- beta + solve(bhhh) %*% g
+        print(beta)
     }
     beta_seq[i, 1] <- beta[1]
     beta_seq[i, 2] <- beta[2]
 }
+
 
 
 ##################### q2-1 #####################
@@ -84,7 +90,7 @@ blk_wm_midwest <- df %>%
 blk_wm_midwest_logit <- glm(married ~ age + I(age^2) + education, family = binomial, data = blk_wm_midwest)
 
 
-summary(blk_wm_midwest_logit)$coefficients[,1:2] ## coef and std. error
+summary(blk_wm_midwest_logit)$coefficients[,1:2] ## coef. and std. error
 
 
 ##################### q2-2 #####################
