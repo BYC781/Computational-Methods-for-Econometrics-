@@ -79,6 +79,10 @@ for (i in 1:R){
     beta_seq[i, 2] <- beta[2]
 }
 
+mean(beta_seq[,1])
+mean(beta_seq[,2])
+sd(beta_seq[,1])
+sd(beta_seq[,2])
 
 
 ##################### q2-1 #####################
