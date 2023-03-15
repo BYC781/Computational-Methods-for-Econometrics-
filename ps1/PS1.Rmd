@@ -2,7 +2,7 @@
 title: "PS1"
 author: "Boyu, Chen R11323006"
 date: "2023-03-13"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -147,7 +147,8 @@ df <- readxl::read_xlsx('cps09mar.xlsx')
 df$married <- ifelse(df$marital %in% c(1, 2, 3), 1, 0)
 blk_wm_midwest <- df %>% 
     filter(race==2, region == 2, female == 1)
-blk_wm_midwest_logit <- glm(married ~ age + I(age^2) + education, family = binomial, data = blk_wm_midwest)
+blk_wm_midwest_logit <- glm(married ~ age + I(age^2) + education, 
+                            family = binomial, data = blk_wm_midwest)
 
 
 summary(blk_wm_midwest_logit)$coefficients[,1:2] ## coef. and std. error
