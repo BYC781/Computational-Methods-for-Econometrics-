@@ -33,7 +33,6 @@ y <- as.numeric((b1*x1 + u1) > (b2*x2 + u2))
 & =   \sum_i[y_i(\beta_1X_{1i}-\beta_2X_{2i}) - \frac{exp(\beta_1X_{1i}-\beta_2X_{2i})}{1+exp(\beta_1X_{1i}-\beta_2X_{2i})}X_{1i}]
 \end{align*}
 ```
-
 ```{r loglik}
 loglik <- function(beta1, beta2, x1, x2){
     index <- beta1*x1 - beta2 * x2
@@ -66,7 +65,8 @@ argmax_beta
 
 ### Gradient method(BHHH method)
 
-The gradient of the log-likelihood function is 
+The gradient of the log-likelihood function is
+
 ```{=tex}
 \begin{align*}
 & \frac{\partial lnL_i}{\partial \beta} = 
@@ -76,7 +76,10 @@ X_{2i}(p_i-y_i)
 \end{bmatrix}
 \end{align*}
 ```
-The $H_{bhhh}$ matrix is 
+Where $p_i = \frac{exp(\beta_1X_{1i}-\beta_2X_{2i})}{1+exp(\beta_1X_{1i}-\beta_2X_{2i})}$
+
+The $H_{bhhh}$ matrix is
+
 ```{=tex}
 \begin{align*}
 & H_{bhhh} = \sum_i \frac{\partial lnL_i}{\partial \beta} \frac{\partial lnL_i}{\partial \beta^{'}}= 
@@ -86,7 +89,8 @@ The $H_{bhhh}$ matrix is
 \end{bmatrix}
 \end{align*}
 ```
-The code is 
+The code is
+
 ```{r bhhh}
 ##### BHHH #####
 ## R=100, N=400
@@ -141,6 +145,7 @@ cat('The standard error of beta1_hat is', sd(beta_hat[,1]), '\n',
 # Question 2
 
 ### 2-1
+
 ```{r q2-1}
 library(dplyr)
 df <- readxl::read_xlsx('cps09mar.xlsx')
@@ -155,6 +160,7 @@ summary(blk_wm_midwest_logit)$coefficients[,1:2] ## coef. and std. error
 ```
 
 ### 2-2
+
 ```{r q2-2}
 # setting sample size and num of repetition
 n <- nrow(blk_wm_midwest)
@@ -186,6 +192,16 @@ cat(' Intercept',se_boot[1], '\n',
 ```
 
 ### 2-3
+
+The Delta method in multivariate case is
+```{=tex}
+\begin{align*}
+\sqrt{n} (g(\hat\theta) - g(\theta_0)) \overset{d}{\rightarrow} N(\partial g^T \Sigma \partial g)
+\end{align*}
+```
+
+where $\partial g$ is the gradient column vector of g function, $\Sigma$ is the asymptotic variance-covariance matrix of $\hat\theta$. In this case, $g = \frac{-\beta_1}{2\beta_2}$ and $\partial g = (\frac{-1}{2\beta_2} \space \frac{\beta_1}{2\beta_2^2})^T$
+
 ```{r q2-3}
 #  - (b1) / (2*b2)
 beta_hat <- coef(blk_wm_midwest_logit)
@@ -194,18 +210,18 @@ result <- unname(- beta_hat[2] / (2 * beta_hat[3]))
 # partial derivitives
 d1 <- -1 / (2 * beta_hat[3])
 d2 <- beta_hat[2] / (2 * beta_hat[3]^2)
+grad <- matrix(c(d1, d2),ncol=1)
 
 # standard error
 vcov_matrix <- vcov(blk_wm_midwest_logit)
-delta_se <- sqrt(d1^2 * vcov_matrix[2,2] 
-                 + d2^2 * vcov_matrix[3,3] 
-                 + 2 * d1 * d2 * vcov_matrix[2,3])
+delta_se <- t(grad) %*% vcov_matrix[2:3, 2:3] %*% grad
 
 # result
-unname(delta_se)
+sqrt(delta_se)
 ```
 
 ### 2-4
+
 ```{r q2-4}
 # num of repetition
 B <- 1000
