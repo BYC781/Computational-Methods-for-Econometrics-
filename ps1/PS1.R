@@ -6,8 +6,6 @@ x1 <- rnorm(n, 0, 1)
 x2 <- rchisq(n, 1)
 u1 <- rgumbel(n)
 u2 <- rgumbel(n)
-
-# construct y
 y <- as.numeric((b1*x1 + u1) > (b2*x2 + u2))
 
 ## log_likelihood function
@@ -25,7 +23,8 @@ argmax_beta <- c(0,0)
 for (i in beta1_grid){
     for(j in beta2_grid){
         temp <- loglik(i,j, x1, x2)
-        if (temp < max_lik){ 
+        if (temp < max_lik){
+            # try to minimize negative log-likelihood fn.
             max_lik <- temp
             argmax_beta <- c(i,j)
         }
@@ -33,7 +32,7 @@ for (i in beta1_grid){
 }
 argmax_beta
 
-##### BHHH 跑出來啦!!!#####
+##### BHHH #####
 ## R=100, N=400
 R=100;N=400
 X1 <- matrix(rnorm(R*N), nrow=N)
@@ -114,7 +113,7 @@ for (i in 1:B) {
     # 使用取樣的資料跑logit
     fit <- glm(married ~ age + I(age^2) + education, data = sample_data, family = binomial())
     
-    # 提取sd
+    # 提取se
     for(j in 1:4){
         se_boot_vec[i,j] <- summary(fit)$coefficients[j, 2]
     }
@@ -130,7 +129,7 @@ se_boot
 
 # 計算 - (b1) / (2*b2) 的值
 beta_hat <- coef(blk_wm_midwest_logit)
-result <- - beta_hat[2] / (2 * beta_hat[3])
+result <- unname(- beta_hat[2] / (2 * beta_hat[3]))
 
 # 計算偏導數
 d1 <- -1 / (2 * beta_hat[3])
