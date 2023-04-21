@@ -97,8 +97,8 @@ The code is
 R=100;N=400
 X1 <- matrix(rnorm(R*N), nrow=N)
 X2 <- matrix(rchisq(R*N, 1), nrow=N)
-U1 <- matrix(rgumbel(R*N), nrow=N)
-U2 <- matrix(rgumbel(R*N), nrow=N)
+U1 <- matrix(exp(-exp(-runif(R*N))), nrow=N)
+U2 <- matrix(exp(-exp(-runif(R*N))), nrow=N)
 Y <- as.matrix((b1*X1 + U1) > (b2*X2 + U2)) %>% ifelse(1,0)
 
 logistic <- function(x) {
