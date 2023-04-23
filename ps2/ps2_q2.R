@@ -1,79 +1,90 @@
 library(tidyverse)
-set.seed(2000)
-data <- c(rnorm(2000, 20, 5), rnorm(3000, 10, 3))
-df <- data.frame(value = data)
-
-# Plot the histogram
-ggplot(df, aes(x = value)) +
-    geom_histogram(binwidth = 1, color = "black", fill = "gray") +
-    labs(title = "Histogram of Shuffled Mixed Vector",
+# DGP
+set.seed(123)
+x <- c(rnorm(3000, 20, 5), rnorm(2000, 10, 3))
+df <- data.frame(x = x)
+ggplot(df, aes(x = x)) +
+    geom_histogram(binwidth = 1, color = "gray", fill = "gray") +
+    labs(title = "Histogram of Mixed Vector",
          x = "Value",
          y = "Count")
 
-
-# parameters generator
-global.par <- function(par){
-    mu1 <<- par[1]; sigma1 <<- par[2]; pi1 <<- par[3]
-    mu2 <<- par[4]; sigma2 <<- par[5]; pi2 <<- par[6]
-}
-
-Pr_zi.eaual.1 <- function(vec){
-    pr_vec1 <- dnorm(vec, mean = mu1, sd = sigma1)
-    pr_vec2 <- dnorm(vec, mean = mu2, sd = sigma2)
-    
-    pr_zi.eaual.1 <- pi1*pr_vec1 / (pi1*pr_vec1 + pi2*pr_vec2)
-    return(pr_zi.eaual.1)
-}
-
-Pr_zi.eaual.2 <- function(vec){
-    pr_vec1 <- dnorm(vec, mean = mu1, sd = sigma1)
-    pr_vec2 <- dnorm(vec, mean = mu2, sd = sigma2)
-    
-    pr_zi.eaual.2 <- pi2*pr_vec2 / (pi1*pr_vec1 + pi2*pr_vec2)
-    return(pr_zi.eaual.2)
-}
-
-obj.fun <- function(vec){
-    pr_zi.eaual.1 <- Pr_zi.eaual.1(vec)
-    pr_zi.eaual.2 <- Pr_zi.eaual.2(vec)
-    q <- pr_zi.eaual.1* (log(pi1) + dnorm(vec, mu1, sigma1, log = TRUE)) + 
-        pr_zi.eaual.2* (log(pi2) + dnorm(vec, mu2, sigma2, log = TRUE))
-    neg.Q <- -sum(q)
-    return(neg.Q)
-}
-
-init <- runif(6, 0, 1)
-tolerance <- 1e-6; max_iter <- 1e6
-count <- 0
-record <- rep(NA, max_iter)
-global.par(init)
-logl <- obj.fun(vec=data)
-record[1] <- obj.fun(vec=data)
+# init
+mu <- c(8, 15)
+sigma <- c(5, 5)
+pi <- c(0.5, 0.5)
 
 
-while (TRUE) {
-    count <- count + 1
-    # E-step: calculate the posterior probabilities
-    pr1 <- Pr_zi.eaual.1(data) ; pr2 <- Pr_zi.eaual.2(data)
-    pi1 <- mean(pr1)
-    pi2 <- mean(pr2)
-    
-    # M-step: update the parameters
-    mu1 <- sum(data * pr1) / sum(pr1)
-    mu2 <- sum(data * pr2) / sum(pr2)
-    sigma1 <- sqrt(sum((data - mu1)^2 * pr1) / sum(pr1))
-    sigma2 <- sqrt(sum((data - mu1)^2 * pr2) / sum(pr2))
-    
-    newlogl <- obj.fun(data)
-    record[count+1] <- newlogl
-    if (abs(newlogl - logl) < tolerance) {
-        break
-    } else {
-        logl <- newlogl
+# E-step
+estep <- function(x, mu, sigma, pi) {
+    n <- length(x)
+    k <- length(mu)
+    post <- matrix(0, n, k)
+    for (i in 1:n) {
+        for (j in 1:k) {
+            post[i, j] <- dnorm(x[i], mu[j], sigma[j]) * pi[j]
+        }
+        post[i, ] <- post[i, ] / sum(post[i, ])
     }
-
-    if (count == max_iter){
-        break
-    }
+    return(post)
 }
-record <- record[!is.na(record)]
+
+
+# M-step
+mstep <- function(x, post) {
+    n <- nrow(post)
+    k <- ncol(post)
+    mu <- numeric(k)
+    sigma <- numeric(k)
+    pi <- numeric(k)
+    for (j in 1:k) {
+        mu[j] <- sum(post[, j] * x) / sum(post[, j])
+        sigma[j] <- sqrt(sum(post[, j] * (x - mu[j])^2) / sum(post[, j]))
+        pi[j] <- sum(post[, j]) / n
+    }
+    return(list(mu = mu, sigma = sigma, pi = pi))
+}
+
+
+
+# EM
+em <- function(x, mu, sigma, pi, tol = 1e-6, maxiter = 100) {
+    loglik <- numeric(maxiter)
+    for (iter in 1:maxiter) {
+        # E-step
+        post <- estep(x, mu, sigma, pi)
+        # M-step
+        params <- mstep(x, post)
+        # update parameters
+        mu <- params$mu
+        sigma <- params$sigma
+        pi <- params$pi
+        # calculate log-likelihood
+        loglik[iter] <- sum(post[,1]* log(pi[1]) + dnorm(x, mu[1], sigma[1], log=TRUE)+
+                                post[,2]* log(pi[2]) + dnorm(x, mu[2], sigma[2], log=TRUE))
+        # check convergence
+        if (iter > 1 && abs(loglik[iter] - loglik[iter - 1]) < tol) {
+            break
+        }
+    }
+    return(list(mu = mu, sigma = sigma, pi = pi, loglik = loglik[1:iter]))
+}
+
+# EM algorithm
+result <- em(x, mu, sigma, pi)
+
+# output
+cat("mu:", result$mu, "\n")
+cat("sigma:", result$sigma, "\n")
+cat("pi:", result$pi, "\n")
+
+
+df$y <- result$pi[1]*dnorm(df$x, mean = result$mu[1], sd = result$sigma[1])
+df$z <- result$pi[2]*dnorm(df$x, mean = result$mu[2], sd = result$sigma[2])
+
+ggplot(df, aes(x = x)) + 
+    geom_line(aes(y = y), color = "blue") +
+    geom_line(aes(y = z), color = "red") + 
+    geom_histogram(aes(y = ..density..), bins = 50, alpha = 0.5) + 
+    theme_minimal()
+
