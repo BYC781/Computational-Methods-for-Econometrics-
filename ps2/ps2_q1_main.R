@@ -28,5 +28,6 @@ T <- 10
 n_hat <- get.n_hat(A,B,d,rho)
 g_n <- as.matrix(g_n.fn()) # 21*1
 
+set.seed(2048)
 init.param = c(0.5, 0.5, 0.9, 0.1, 0.5, 1.9, 0.6)
 msm.fit <- optim(fn = obj.fn, par = init.param, method = "BFGS")
