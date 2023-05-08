@@ -1,18 +1,29 @@
 library(tidyverse)
-source("./ps2/functions.R")
-data <- readxl::read_xlsx("./ps2/CilibertoTamerEconometrica.xlsx")
-data <- cbind(data[ ,1:7], rowSums(data %>% select(2:7)), data[ ,8:27])
-names(data)[8] <- 'total.N'
-n.mkt <- dim(data)[1]
-true.n <- cbind(data[,2:8])
+library(kable)
+library(kableExtra)
+source("./ps2/ps2_q1_fn.R")
+flight.df <- readxl::read_xlsx("./ps2/CilibertoTamerEconometrica.xlsx")
+dat2 <- (flight.df %>% 
+            mutate(N = rowSums(across(airlineAA:airlineWN)), const = 1, .before = marketdistance))
+
+firm.Names <- flight.df %>% select(starts_with("airline")) %>% colnames() %>% substring(8)
+
+market.regressors <- c('const',"marketdistance","marketsize" )
+firm.regressors <- c("marketpresence","mindistancefromhub")
+
+market.regressors.i <- c(9, 10, 15)
+firm.regressors.i <- c(18, 24)
+
+n.mkt <- nrow(dat2)
+firm.n <- length(firm.Names)
+
+length.of.each.param <- c(length(firm.regressors),length(market.regressors),1,1 )
 get_XX_and_Z.mat_and_Y()
 
-A <- c(1,1)
-rho <- 0.5
-B <- c(0, 1, 2)
-d <- 5
+
+
 init <- c(1,1,1,1)
-fit <- optim(fn = like_oprobit, par = init, method = "Nelder-Mead")
+fit <- optim(fn = like_oprobit, par = init, method = "BFGS")
 
 # Print the results
 cat("Maximum likelihood estimates:\n")
@@ -22,12 +33,18 @@ cat("beta2 =", fit$par[3], "\n")
 cat("delta =", fit$par[4], "\n")
 
 # MSM
-T <- 10
-# get (n.mkt * 7) matrix, each element is pred. number
-# col: firm1, firm2, ..., firm6, total
-n_hat <- get.n_hat(A,B,d,rho)
-g_n <- as.matrix(g_n.fn()) # 21*1
-
+T <- 100
 set.seed(2048)
 init.param = c(0.5, 0.5, 0.9, 0.1, 0.5, 1.9, 0.6)
+A <- init.param[1:2] %>% as.matrix()
+B <- init.param[3:5] %>% as.matrix()
+d <- init.param[6]
+rho <- init.param[7]
+
+n_hat <- get.n_hat(A,B,d,rho)
+v <- pred.error(n_hat)
+g_n <- g_n.fn(v)
+mom <- t(g_n) %*% g_n
+
 msm.fit <- optim(fn = obj.fn, par = init.param, method = "BFGS")
+kable(msm.fit[["par"]])
