@@ -16,11 +16,6 @@ library(kableExtra)
 ```
 
 # Question 1
-```{r source}
-source("funs.R")
-```
-In `funs.R`, I write some functions to help my analysis, I will show them in the appendix.
-
 ## read data
 ```{r setting data}
 flight.df <- readxl::read_xlsx("CilibertoTamerEconometrica.xlsx")
@@ -38,11 +33,28 @@ n.mkt <- nrow(dat2)
 firm.n <- length(firm.Names)
 
 length.of.each.param <- c(length(firm.regressors),length(market.regressors),1,1 )
-get_XX_and_Z.mat_and_Y()
 ```
 After reading the data, I aggregated the presence of each firms, and called it `total.N`.
 Then we select the second to eighth columns of the data, called it `true.n`
-And I write a function `get_XX_and_Z.mat_and_Y()`, it is nothing but just for saving space and generate `XX`, `Z_mat` and `Y`.
+```{r XX Z.mat Y true.n}
+get_XX_and_Z.mat_and_Y <- function(...){
+    XX <<- dat2[, market.regressors]
+    
+    Z1 <<- dat2[, firm.regressors.i]
+    Z2 <<- dat2[, firm.regressors.i +1]
+    Z3 <<- dat2[, firm.regressors.i +2]
+    Z4 <<- dat2[, firm.regressors.i +3]
+    Z5 <<- dat2[, firm.regressors.i +4]
+    Z6 <<- dat2[, firm.regressors.i +5]
+    Z.mat <<- cbind(Z1, Z2, Z3, Z4, Z5, Z6)
+    
+    Y <<- dat2$N
+    
+    true.n <<- dat2 %>% select(airlineAA:N)
+}
+get_XX_and_Z.mat_and_Y()
+```
+And I write a function `get_XX_and_Z.mat_and_Y()`, it is nothing but just for saving space and generate `XX`, `Z.mat` and `Y`, `true.n`.
 Where `XX` is an `n.mkt`x3 matrix, `Z_mat` is a `n.mkt`x12 matrix, `Y` is a `n.mkt`x1 vector.
 \[
 XX = \begin{bmatrix}
@@ -103,7 +115,7 @@ like_oprobit<- function(init){
             p = 1 - pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]))
         }
         else{
-            p = pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]+1)) - 
+            p = pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]+1)) -
                 pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]))
         }
     }
@@ -116,6 +128,8 @@ set.seed(1234)
 init <- c(1,1,1,1)
 fit <- optim(fn = like_oprobit, par = init, method = "BFGS")
 ```
+
+### Ordered probit result table
 ```{r estimation result for oprobit}
 par_df <- data.frame(value = fit[["par"]])
 rownames(par_df) <- c("b0", "b1", "b2", "d")
@@ -175,7 +189,7 @@ Thus, the dimension of $g_n $ is $33 \times 1$ vector.
 \hat \theta_{MM} = argmin_\beta \space g_n(\theta)'g_n(\theta)
 \end{align*}
 We set parallel to save simulation time:
-```{r setting parallel, echo=FALSE}
+```{r setting parallel, include=FALSE}
 n.cores <- parallel::detectCores() - 1
 my.cluster <- parallel::makeCluster(
     n.cores, 
@@ -188,14 +202,84 @@ clusterEvalQ(cl=my.cluster, source("funs.R"))
 clusterEvalQ(cl=my.cluster, library(magrittr))
 clusterExport(cl = my.cluster, c("n.mkt","Z1", "Z2", "Z3","Z4", "Z5", "Z6", "Z.mat", "XX", "true.n"))
 ```
+```{r functions for MSM}
+sim.process <- function(mkt.i, A, B, d, rho, u_ik, u_i0){
+    n_pred <- matrix(0, nrow=1, ncol=7)
+    is.in <- 0
+    Z <- Z.mat[mkt.i, ] %>% as.numeric() %>%  matrix(ncol = 2, byrow = TRUE)
+    rho <- 1 / (1 + exp(-rho)) # keep rho between 0 and 1
+    
+    for (n.try in 1:6){
+        profit <- Z %*% A + sqrt(1-rho^2) * u_ik[mkt.i, ] + as.numeric((XX[mkt.i, ] %>% as.numeric()) %*% B) + rho * u_i0[mkt.i] - log(n.try)*d
+        
+        total.in <- sum(profit > 0)
+        
+        if (total.in < n.try){
+            n_pred[7] <- n.try - 1
+            n_pred[1:6] <- is.in
+            break
+        }
+        is.in <- as.numeric(profit > 0)
+        if (total.in == 6 & n.try == 6){
+            n_pred[7] <- n.try
+            n_pred[1:6] <- is.in
+        }
+    }
+    return(n_pred)
+}
 
+T.sim.process <- function(mkt.i, A,B,d,rho){
+    ans <- matrix(0, nrow = 1, ncol = 7)
+    for(i in 1:T){
+        u_ik <- matrix(rnorm(n.mkt * 6), ncol=6)
+        u_i0 <- rnorm(n.mkt)
+        ans <-  ans + sim.process(mkt.i, A, B, d, rho, u_ik, u_i0)
+    }
+    return(ans/T)
+}
+
+pred.error <- function(sim.result){
+    v <- true.n - sim.result
+    return(v)
+}
+
+g_n.fn <- function(v){
+    v <- as.matrix(v)
+    E_v0X  = v[,7] * XX             
+    E_v1Z  = v[,1] * cbind(XX, Z1)
+    E_v2Z  = v[,2] * cbind(XX, Z2)
+    E_v3Z  = v[,3] * cbind(XX, Z3)
+    E_v4Z  = v[,4] * cbind(XX, Z4)
+    E_v5Z  = v[,5] * cbind(XX, Z5)
+    E_v6Z  = v[,6] * cbind(XX, Z6)
+    
+    v_i_hat <- cbind(E_v0X, E_v1Z, E_v2Z, E_v3Z, E_v4Z, E_v5Z, E_v6Z)
+    g_n <- colMeans(v_i_hat)
+    return(g_n)
+}
+
+obj.fn <- function(para){
+    A <- para[1:2] %>% as.matrix()
+    B <- para[3:5] %>% as.matrix()
+    d <- para[6]
+    rho <- para[7]
+    sim.result <- foreach(mkt.i = 1:2742, .combine = 'rbind') %dopar% {
+        T.sim.process(mkt.i, A,B,d,rho)
+    }
+    v <- pred.error(sim.result)
+    g_n <- g_n.fn(v)
+    mom <- t(g_n) %*% g_n
+    return(mom)
+}
+```
 ```{r set number of simulation seed and init parameters and run msm}
-T <- 1000
+T <- 2000
 init.param = c(0.5, 0.5, 0.9, 0.1, 0.5, 1.9, 0.6)
 msm.fit <- optim(fn = obj.fn, par = init.param, method = "BFGS")
 stopImplicitCluster()
 ```
 
+### MSM result table
 ```{r estimation result for msm}
 par_df <- data.frame(value = msm.fit[["par"]])
 rownames(par_df) <- c("a1", "a2", "b0", "b1", "b2", "d", "rho")
@@ -283,7 +367,7 @@ em <- function(x, mu, sigma, pi, tol = 1e-6, maxiter = 100) {
 ```
 
 ### EM Result Table
-```{r}
+```{r EM Result Table}
 result <- em(x, mu, sigma, pi)
 res_df <- data.frame(mu = result$mu, sigma = result$sigma, pi = result$pi)
 rownames(res_df) <- c('x1', 'x2')
@@ -300,81 +384,4 @@ ggplot(df, aes(x = x)) +
     geom_line(aes(y = z), color = "red") + 
     geom_histogram(aes(y = after_stat(density)), bins = 50, alpha = 0.5) + 
     theme_minimal()
-```
-
-
-# Appendix: Functions for Question 1
-```{r appendix}
-get_XX_and_Z.mat_and_Y <- function(...){
-    XX <<- dat2[, market.regressors]
-    
-    Z1 <<- dat2[, firm.regressors.i]
-    Z2 <<- dat2[, firm.regressors.i +1]
-    Z3 <<- dat2[, firm.regressors.i +2]
-    Z4 <<- dat2[, firm.regressors.i +3]
-    Z5 <<- dat2[, firm.regressors.i +4]
-    Z6 <<- dat2[, firm.regressors.i +5]
-    Z.mat <<- cbind(Z1, Z2, Z3, Z4, Z5, Z6)
-    
-    Y <<- dat2$N
-    
-    true.n <<- dat2 %>% select(airlineAA:N)
-}
-
-draw_u <- function(...){
-    u_ik <<- matrix(rnorm(n.mkt * 6), ncol=6)
-    u_i0 <<- rnorm(n.mkt)
-}
-
-
-
-like_oprobit<- function(init){
-    beta.mat <- init[1:3]
-    delta <- init[4]
-    f <- 0
-    for (i in 1:n.mkt){
-        if (Y[i] == 0){
-            p = pnorm(-t(XX[i,])%*% beta.mat)
-        }
-        else if (Y[i] == 6){
-            p = 1 - pnorm(-t(XX[i,]) %*% beta.mat + delta*log(Y[i]))
-        }
-        else{
-            p = pnorm(-t(XX[i,]) %*% beta.mat + delta*log(Y[i]+1)) - pnorm(-t(XX[i,]) %*% beta.mat + delta*log(Y[i]))
-        }
-    }
-    f <- f -log(p)
-}
-
-pred.error <- function(n_hat){
-    v <- true.n - n_hat
-    return(v)
-}
-
-g_n.fn <- function(v){
-    v <- as.matrix(v)
-    E_v0X  = v[,7] * XX             
-    E_v1Z  = v[,1] * cbind(XX, Z1)
-    E_v2Z  = v[,2] * cbind(XX, Z2)
-    E_v3Z  = v[,3] * cbind(XX, Z3)
-    E_v4Z  = v[,4] * cbind(XX, Z4)
-    E_v5Z  = v[,5] * cbind(XX, Z5)
-    E_v6Z  = v[,6] * cbind(XX, Z6)
-    
-    v_i_hat <- cbind(E_v0X, E_v1Z, E_v2Z, E_v3Z, E_v4Z, E_v5Z, E_v6Z)
-    g_n <- colMeans(v_i_hat)
-    return(g_n)
-}
-
-obj.fn <- function(para){
-    A <- para[1:2] %>% as.matrix()
-    B <- para[3:5] %>% as.matrix()
-    d <- para[6]
-    rho <- para[7]
-    n_hat <- get.n_hat_parallel(A,B,d,rho, T, num_cores = 4)
-    v <- pred.error(n_hat)
-    g_n <- g_n.fn(v)
-    mom <- t(g_n) %*% g_n
-    return(mom)
-}
 ```

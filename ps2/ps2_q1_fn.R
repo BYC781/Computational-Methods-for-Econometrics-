@@ -34,8 +34,7 @@ like_oprobit<- function(init){
             p = 1 - pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]))
         }
         else{
-            p = pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]+1)) - 
-                pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]))
+            p = pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]+1)) - pnorm(-XX[i,] %*% beta.mat + delta*log(Y[i]))
         }
     }
     f <- f -log(p)
