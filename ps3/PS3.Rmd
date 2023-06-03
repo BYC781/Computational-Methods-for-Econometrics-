@@ -66,7 +66,7 @@ init.a.g <- rnorm(76)
 init.b <- c(rep(1, 17), rep(0.5, 17))
 init.sigma2 <- 2
 # init.param <- c(init.lambda, init.a.g, init.b, init.sigma2)
-init.param <- rep(0, 112)
+init.param <- c(rep(0, 111), 3)
 ```
 
 ```{r loglikelihood}
@@ -75,7 +75,7 @@ log_likeli <- function(param){
     a.g <- param[2:77]
     b1 <- param[78:94]
     b2 <- param[95:111]
-    su <- param[112]
+    sigma2 <- param[112]
     sigma2term <- - log(sigma2) * nrow(combined_data)/2 # OK
     logdetterm <-  sum(sapply(1:76, function(i) {
         logdetterm <- log(det(diag(nrow(network_lsit[[i]])) - lambda * as.matrix(network_lsit[[i]])))
@@ -119,13 +119,16 @@ e.gT_e.g <- t(e.g) %*% e.g
 
 ```{r test2}
 inprodterm <- 0
+lambda <- 0
+b1 <- rep(1, 17)
+b2 <- rep(2, 17)
+sigma2 <- 2
+
 for (i in 1:76){
     S.g <- diag(nrow(network_lsit[[i]])) - lambda * as.matrix(network_lsit[[i]])
     Y.g <- data_list[[i]][ ,18]
     X.g <- data_list[[i]][ ,1:17] %>% as.matrix()
     W.g <- network_lsit[[i]] %>% as.matrix()
-    b1 <- rep(1, 16)
-    b2 <- rep(2,16)
     l.g <- rep(1, nrow(network_lsit[[i]]))
     a.g <- 5
     e.g <- S.g %*% Y.g - X.g %*% b1 - W.g %*% X.g %*% b2 - a.g * l.g
