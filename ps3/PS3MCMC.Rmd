@@ -84,7 +84,7 @@ sigma2_T <- rep(NA, T)
 ```{r whent=1}
 # starting value of draw
 tao_G = sapply(1:76, function(g){W[[g]] %>% rowSums() %>% max()}) %>% max()
-lambda_T[1] <- 5
+lambda_T[1] <- 0.05
 beta_T[1,] <- c(-0.1845, rep(0, 25))
 alpha_T[1,] <- rep(5, 76)
 sigma2_T[1] <- 0.5
