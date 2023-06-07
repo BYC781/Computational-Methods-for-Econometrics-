@@ -1,0 +1,202 @@
+---
+title: "PS3_program"
+author: "Boyu Chen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(MASS)
+library(invgamma)
+library(kableExtra)
+library(optimx)
+setwd("/Users/bychen/Documents/ECON-7218/ps3")
+```
+
+## Read Data
+
+### group data
+
+```{r readdata}
+data_list <- list()
+for (i in 1:76) {
+  filename <- paste0("./problem_set_3_sample/group/group", i, ".dat")
+  data <- read.table(filename)
+  data_list[[i]] <- data
+}
+names(data_list) <- paste0("g", 1:76)
+```
+
+### network data
+```{r readnetwork}
+W <- list()
+for (i in 1:76) {
+  filename <- paste0("./problem_set_3_sample/network/network", i, ".dat")
+  data <- read.table(filename)
+  W[[i]] <- as.matrix(data)
+}
+names(W) <- paste0("W", 1:76)
+```
+
+## Set N, X, Y
+```{r Y X N}
+N <- sapply(1:76, function(i){nrow(W[[i]])})
+X <- list()
+Y <- list()
+for (i in 1:76) {
+  X[[i]] <- data_list[[i]][, c(1:6, 8:14)] %>% as.matrix()
+  Y[[i]] <- data_list[[i]][, 18] %>% as.matrix()
+}
+
+```
+
+```{r setcolname}
+col_names <- c('age', 'male', 'black', 'asian', 'hisp', 'race.other', 
+               'both.par', 'less.hs', 'more.hs', 'mom.edu.mis', 'welfare',
+               'mom.job.miss', 'prof', 'job.other', 'sport', 'white', 
+               'yr.school', 'gpa', 'overage')
+```
+
+# MCMC
+
+## Set init.param
+```{r setMCMC}
+T = 5000 # number of iterations during Markov process
+# assign param in prior distribution
+# beta k = 13 so 2k = 26
+b_0 <- rep(0, 26)
+B_0 <- diag(0.5, 26, 26)
+# alpha
+a_0 <- 5; A_0 <- 0.1
+# sigma2
+k_0 <- 0; v_0 <- 0
+lambda_prime = 0
+
+# saver
+lambda_T <- rep(NA, T)
+beta_T <- matrix(nrow = T, ncol = 26)
+alpha_T <- matrix(nrow = T, ncol = 76)
+sigma2_T <- rep(NA, T)
+```
+
+```{r whent=1}
+# starting value of draw
+tao_G = sapply(1:76, function(g){W[[g]] %>% rowSums() %>% max()}) %>% max()
+lambda_T[1] <- 5
+beta_T[1,] <- c(-0.1845, rep(0, 25))
+alpha_T[1,] <- rep(5, 76)
+sigma2_T[1] <- 0.5
+```
+
+## Main Process
+
+```{r M-H within Gibbs}
+# propose lambda*
+for (t in 2:T){
+    accept = 0
+    while (accept == 0){
+        if (t<2){
+            lambda_prime <- rnorm(1, lambda_T[t-1], 0.1^2 )
+        }else if(t == 2){
+            lambda_prime <- rnorm(1, lambda_T[t-1], 0) * 0.95 + rnorm(1, lambda_T[t-1], 0.1^2) * 0.05
+        }else{
+            lambda_prime <- rnorm(1, lambda_T[t-1], 2.38^2 * var(lambda_T[1:t-1])) * 0.95 + rnorm(1, lambda_T[t-1], 0.1^2) * 0.05
+        }
+        accept = ifelse(lambda_prime >= -1/tao_G && lambda_prime <= 1/tao_G, 1, 0)
+    }
+    
+    pp_l = 0
+    for (g in 1:76){
+        S_1 <- diag(N[g]) - lambda_prime * W[[g]] %>% as.matrix()
+        S_2 <- diag(N[g]) - lambda_T[t-1] * W[[g]] %>% as.matrix()
+        XX.g <- cbind(X[[g]], W[[g]]%*%X[[g]])
+        ep_1 <- S_1 %*% Y[[g]] - XX.g %*% beta_T[t-1, ] - rep(1, N[g]) * alpha_T[t-1, g]
+        ep_2 <- S_2 %*% Y[[g]] - XX.g %*% beta_T[t-1, ] - rep(1, N[g]) * alpha_T[t-1, g]
+        V = sigma2_T[t-1] * diag(N[g])
+        like_1 <- log(det(S_1)) - 0.5 * t(ep_1) %*% solve(V) %*% ep_1
+        like_2 <- log(det(S_2)) - 0.5 * t(ep_2) %*% solve(V) %*% ep_2
+        pp_l = pp_l + like_1 - like_2
+    }
+    pp_l = min(c(exp(pp_l), 1))
+    lambda_T[t] = ifelse(runif(1) <= pp_l, lambda_prime, lambda_T[t-1])
+    
+    # THE SAMPLING OF BETA FROM PROSTERIOR DISTRIBUTION
+    B <- sigma2_T[t-1]^-1 * Reduce("+",  lapply(1:76, function(g){
+        XX.g <- cbind(X[[g]], W[[g]]%*%X[[g]])
+        return(t(XX.g) %*% XX.g)
+    }))
+    B <- solve(solve(B_0) + B)
+    
+    beta_hat <- lapply(1:76, function(g){
+        S.g <- diag(N[g]) - lambda_T[t] * W[[g]] %>% as.matrix()
+        XX.g <- cbind(X[[g]], W[[g]]%*%X[[g]])
+        Y.g <- Y[[g]]
+        l.g <- rep(1, N[g])
+        a.g <- alpha_T[t-1]
+        return(t(XX.g) %*% (S.g%*%Y.g - l.g*a.g))
+    })
+    beta_hat <- sigma2_T[t-1]^-1 * Reduce("+", beta_hat)
+    beta_hat <- B %*% (solve(B_0)%*%b_0 + beta_hat)
+    
+    beta_T[t,] <- mvrnorm(n=1, mu=beta_hat, Sigma=B)
+    
+    # THE SAMPLING OF SIGMA_E^2 FROM PROSTERIOR DISTRIBUTION
+    sum_ep.gTep.g <- sapply(1:76, function(g){
+        S.g <- diag(N[g]) - lambda_T[t] * W[[g]] %>% as.matrix()
+        Y.g <- Y[[g]]
+        XX.g <- cbind(X[[g]], W[[g]]%*%X[[g]])
+        l.g <- rep(1, N[g])
+        a.g <- alpha_T[t-1]
+        beta <- beta_T[t,]
+        ep.g <- S.g %*% Y.g - XX.g %*% beta - l.g*a.g
+        return(t(ep.g)%*%ep.g)
+    }) %>% sum()
+
+    sigma2_T[t] <- 1/rgamma(1, (k_0 + sum(N))/2, (v_0+ sum_ep.gTep.g)/2)
+    
+    # THE SAMPLING OF ALPHA_G FROM PROSTERIOR DISTRIBUTION
+    for (g in 1:76){
+        sigma2 <- sigma2_T[t]
+        l.g <- rep(1, N[g])
+        S.g <- diag(N[g]) - lambda_T[t] * W[[g]] %>% as.matrix()
+        Y.g <- Y[[g]]
+        XX.g <- cbind(X[[g]], W[[g]] %*% X[[g]])
+        beta <- beta_T[t,]
+        cbind(X[[g]], W[[g]]%*%X[[g]])
+        R.g <- (A_0^-1 + sigma2^-1 * t(l.g) %*% l.g) ^-1
+        a.g_hat <- R.g * (A_0^-1 * a_0 + sigma2^-1 * t(l.g)%*%(S.g%*%Y.g-XX.g%*%beta))
+        alpha_T[t, g] <- rnorm(1, a.g_hat, R.g)
+    }
+}
+```
+
+
+## Posterior Results
+
+```{r posterior result}
+posterior_result <- list()
+posterior_result$alpha_mean <- sapply(1:76, function(g){mean(alpha_T[,g])})
+posterior_result$alpha_sd <- sapply(1:76, function(g){sd(alpha_T[,g])})
+posterior_result$beta_mean <- sapply(1:26, function(k){mean(beta_T[,k])})
+posterior_result$beta_sd <- sapply(1:26, function(k){sd(beta_T[,k])})
+posterior_result$lambda_mean <- mean(lambda_T)
+posterior_result$lambda_sd <- sd(lambda_T)
+posterior_result$sigma2_mean <- mean(sigma2_T)
+posterior_result$sigma2_sd <- sd(sigma2_T)
+```
+```{r posterior df}
+var.name <- c("lambda", paste0("b1.", 1:13), paste0("b2.", 1:13), paste0("a", 1:76), "sigma2")
+var.mean <- c(posterior_result$lambda_mean, posterior_result$beta_mean, 
+          posterior_result$alpha_mean, posterior_result$sigma2_mean)
+var.sd <- c(posterior_result$lambda_sd, posterior_result$beta_sd, 
+          posterior_result$alpha_sd, posterior_result$sigma2_sd)
+df <- data.frame(cbind(var.name, var.mean, var.sd))
+kable(df)
+```
+```{r write}
+write_csv(df, file = "mcmc.csv")
+```
+
+
