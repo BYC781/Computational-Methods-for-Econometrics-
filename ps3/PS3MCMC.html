@@ -11,9 +11,9 @@
 
 <meta name="author" content="Boyu Chen" />
 
-<meta name="date" content="2023-06-06" />
+<meta name="date" content="2023-06-09" />
 
-<title>PS3_program</title>
+<title>PS3_MCMC</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -356,9 +356,9 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">PS3_program</h1>
+<h1 class="title toc-ignore">PS3_MCMC</h1>
 <h4 class="author">Boyu Chen</h4>
-<h4 class="date">2023-06-06</h4>
+<h4 class="date">2023-06-09</h4>
 
 </div>
 
@@ -388,52 +388,44 @@ names(W) &lt;- paste0(&quot;W&quot;, 1:76)</code></pre>
 </div>
 <div id="set-n-x-y" class="section level2">
 <h2>Set N, X, Y</h2>
-<pre class="r"><code>N &lt;- sapply(1:76, function(i){nrow(W[[i]])})</code></pre>
-<pre class="r"><code>X &lt;- list()
+<pre class="r"><code>N &lt;- sapply(1:76, function(i){nrow(W[[i]])})
+X &lt;- list()
 Y &lt;- list()
 for (i in 1:76) {
-  X[[i]] &lt;- data_list[[i]][, 1:17] %&gt;% as.matrix()
+  X[[i]] &lt;- data_list[[i]][, c(1:6, 8:14)] %&gt;% as.matrix()
   Y[[i]] &lt;- data_list[[i]][, 18] %&gt;% as.matrix()
 }</code></pre>
 <pre class="r"><code>col_names &lt;- c(&#39;age&#39;, &#39;male&#39;, &#39;black&#39;, &#39;asian&#39;, &#39;hisp&#39;, &#39;race.other&#39;, 
                &#39;both.par&#39;, &#39;less.hs&#39;, &#39;more.hs&#39;, &#39;mom.edu.mis&#39;, &#39;welfare&#39;,
                &#39;mom.job.miss&#39;, &#39;prof&#39;, &#39;job.other&#39;, &#39;sport&#39;, &#39;white&#39;, 
                &#39;yr.school&#39;, &#39;gpa&#39;, &#39;overage&#39;)</code></pre>
-<pre class="r"><code>init.lambda &lt;- 0.029
-init.a.g &lt;- rep(4.0, 76)
-init.b &lt;- c(-0.193, -0.111, -0.096, -0.012, 0.032, -0.117, 0.070, -0.145, 
-            0.145, -0.081, 0.125, -0.042, -0.004, 0.029, 0.2, 0.3, 0.3,
-            -0.005, -0.0029, -0.029, 0.040, -0.044, -0.076, 0.014, -0.04, 
-            0.005, 0.038, 0.028, -0.007, 0.018, 0.046, 0.02, 0.03, 0.03)
-init.sigma2 &lt;- 0.459
-init.param &lt;- c(init.lambda, init.a.g, init.b, init.sigma2)</code></pre>
 </div>
 <div id="mcmc" class="section level1">
 <h1>MCMC</h1>
 <div id="set-init.param" class="section level2">
 <h2>Set init.param</h2>
-<pre class="r"><code>T = 5000 # number of iterations during Markov process
+<pre class="r"><code>T = 20000 # number of iterations during Markov process
 # assign param in prior distribution
-# beta k = 17 so 2k = 34
-b_0 &lt;- rep(0, 34)
-B_0 &lt;- diag(1, 34, 34)
+# beta k = 13 so 2k = 26
+b_0 &lt;- rep(0, 26)
+B_0 &lt;- diag(0.5, 26, 26)
 # alpha
-a_0 &lt;- 4; A_0 &lt;- 0.5
+a_0 &lt;- 5; A_0 &lt;- 0.1
 # sigma2
-k_0 &lt;- 3; v_0 &lt;- 3
+k_0 &lt;- 0; v_0 &lt;- 0
 lambda_prime = 0
 
 # saver
 lambda_T &lt;- rep(NA, T)
-beta_T &lt;- matrix(nrow = T, ncol = 34)
+beta_T &lt;- matrix(nrow = T, ncol = 26)
 alpha_T &lt;- matrix(nrow = T, ncol = 76)
 sigma2_T &lt;- rep(NA, T)</code></pre>
 <pre class="r"><code># starting value of draw
 tao_G = sapply(1:76, function(g){W[[g]] %&gt;% rowSums() %&gt;% max()}) %&gt;% max()
-lambda_T[1] &lt;- runif(1, -1/tao_G, 1/tao_G)
-beta_T[1,] &lt;- mvrnorm(1, mu=b_0, Sigma=B_0)
-alpha_T[1,] &lt;- rnorm(76, a_0, A_0)
-sigma2_T[1] &lt;- rinvgamma(1, k_0/2, v_0/2)</code></pre>
+lambda_T[1] &lt;- 0.0397
+beta_T[1,] &lt;- c(-0.1845, rep(0, 25))
+alpha_T[1,] &lt;- rep(5, 76)
+sigma2_T[1] &lt;- 0.5</code></pre>
 </div>
 <div id="main-process" class="section level2">
 <h2>Main Process</h2>
@@ -441,14 +433,20 @@ sigma2_T[1] &lt;- rinvgamma(1, k_0/2, v_0/2)</code></pre>
 for (t in 2:T){
     accept = 0
     while (accept == 0){
-        if (t&lt;=2){
-            lambda_prime &lt;- mvrnorm(mu = lambda_T[t-1], Sigma = 0.1^2 * diag(1))
+        if (t&lt;2){
+            lambda_prime &lt;- rnorm(1, lambda_T[t-1], 0.1^2 )
+        }else if(t == 2){
+            lambda_prime &lt;- rnorm(1, lambda_T[t-1], 0) * 0.95 + 
+                rnorm(1, lambda_T[t-1], 0.1^2) * 0.05
         }else{
-            lambda_prime &lt;- mvrnorm(mu = lambda_T[t-1], Sigma = 2.38^2 * var(lambda_T[1:t-1])) * 0.95 +mvrnorm(mu = lambda_T[t-1], Sigma = 0.1^2 * diag(1)) * 0.05
+            lambda_prime &lt;- rnorm(1, 
+                                  lambda_T[t-1], 
+                                  2.38^2 * var(lambda_T[1:t-1])) * 0.95 + 
+                rnorm(1, lambda_T[t-1], 0.1^2) * 0.05
         }
-        accept = ifelse(lambda_prime &gt;= -1/tao_G &amp;&amp; lambda_prime &lt;= 1/tao_G, 1, 0)
+        accept = ifelse(
+            lambda_prime &gt;= -1/tao_G &amp;&amp; lambda_prime &lt;= 1/tao_G, 1, 0)
     }
-    lambda_T[t] &lt;- lambda_prime
     
     pp_l = 0
     for (g in 1:76){
@@ -457,32 +455,29 @@ for (t in 2:T){
         XX.g &lt;- cbind(X[[g]], W[[g]]%*%X[[g]])
         ep_1 &lt;- S_1 %*% Y[[g]] - XX.g %*% beta_T[t-1, ] - rep(1, N[g]) * alpha_T[t-1, g]
         ep_2 &lt;- S_2 %*% Y[[g]] - XX.g %*% beta_T[t-1, ] - rep(1, N[g]) * alpha_T[t-1, g]
-        V = sigma2_T[t-1] * diag(N[g])
-        like_1 &lt;- log(det(S_1)) - 0.5 * t(ep_1) %*% solve(V) %*% ep_1
-        like_2 &lt;- log(det(S_2)) - 0.5 * t(ep_2) %*% solve(V) %*% ep_2
+        like_1 &lt;- log(det(S_1)) - 0.5 * sigma2_T[t-1]^(-1) * t(ep_1) %*% ep_1
+        like_2 &lt;- log(det(S_2)) - 0.5 * sigma2_T[t-1]^(-1) * t(ep_2) %*% ep_2
         pp_l = pp_l + like_1 - like_2
     }
     pp_l = min(c(exp(pp_l), 1))
     lambda_T[t] = ifelse(runif(1) &lt;= pp_l, lambda_prime, lambda_T[t-1])
     
     # THE SAMPLING OF BETA FROM PROSTERIOR DISTRIBUTION
-    B &lt;- lapply(1:76, function(g){
+    B &lt;- sigma2_T[t-1]^-1 * Reduce(&quot;+&quot;,  lapply(1:76, function(g){
         XX.g &lt;- cbind(X[[g]], W[[g]]%*%X[[g]])
         return(t(XX.g) %*% XX.g)
-    })
-    B &lt;- Reduce(&quot;+&quot;, B)
+    }))
     B &lt;- solve(solve(B_0) + B)
     
     beta_hat &lt;- lapply(1:76, function(g){
-        sigma2 &lt;- sigma2_T[t-1]
         S.g &lt;- diag(N[g]) - lambda_T[t] * W[[g]] %&gt;% as.matrix()
         XX.g &lt;- cbind(X[[g]], W[[g]]%*%X[[g]])
         Y.g &lt;- Y[[g]]
         l.g &lt;- rep(1, N[g])
         a.g &lt;- alpha_T[t-1]
-        return(sigma2^-1 * t(XX.g) %*% (S.g%*%Y.g - l.g*a.g))
+        return(t(XX.g) %*% (S.g%*%Y.g - l.g*a.g))
     })
-    beta_hat &lt;- Reduce(&quot;+&quot;, beta_hat)
+    beta_hat &lt;- sigma2_T[t-1]^-1 * Reduce(&quot;+&quot;, beta_hat)
     beta_hat &lt;- B %*% (solve(B_0)%*%b_0 + beta_hat)
     
     beta_T[t,] &lt;- mvrnorm(n=1, mu=beta_hat, Sigma=B)
@@ -499,36 +494,41 @@ for (t in 2:T){
         return(t(ep.g)%*%ep.g)
     }) %&gt;% sum()
 
-    sigma2_T[t] &lt;- rinvgamma(1, (k_0 + sum(N))/2, (v_0+ sum_ep.gTep.g)/2)
+    sigma2_T[t] &lt;- 1/rgamma(1, (k_0 + sum(N))/2, (v_0+ sum_ep.gTep.g)/2)
     
     # THE SAMPLING OF ALPHA_G FROM PROSTERIOR DISTRIBUTION
-    sigma2 &lt;- sigma2_T[t]
-    l.g &lt;- rep(1, N[g])
-    S.g &lt;- diag(N[g]) - lambda_T[t] * W[[g]] %&gt;% as.matrix()
-    Y.g &lt;- Y[[g]]
-    beta &lt;- beta_T[t,]
-    cbind(X[[g]], W[[g]]%*%X[[g]])
-    R.g &lt;- (A_0^-1 + sigma2^-1 * t(l.g) %*% l.g) ^-1
-    a.g_hat &lt;- R.g * (A_0^-1 * a_0 + sigma2^-1 * t(l.g)%*%(S.g%*%Y.g-XX.g%*%beta))
-    alpha_T[t, ] &lt;- rnorm(76, a.g_hat, R.g)
-}</code></pre>
+    for (g in 1:76){
+        sigma2 &lt;- sigma2_T[t]
+        l.g &lt;- rep(1, N[g])
+        S.g &lt;- diag(N[g]) - lambda_T[t] * W[[g]] %&gt;% as.matrix()
+        Y.g &lt;- Y[[g]]
+        XX.g &lt;- cbind(X[[g]], W[[g]] %*% X[[g]])
+        beta &lt;- beta_T[t,]
+        cbind(X[[g]], W[[g]]%*%X[[g]])
+        R.g &lt;- (A_0^-1 + sigma2^-1 * t(l.g) %*% l.g) ^-1
+        a.g_hat &lt;- R.g * (A_0^-1 * a_0 + sigma2^-1 * t(l.g)%*%(S.g%*%Y.g-XX.g%*%beta))
+        alpha_T[t, g] &lt;- rnorm(1, a.g_hat, R.g)
+    }
+}
+beep(4)</code></pre>
 </div>
 <div id="posterior-results" class="section level2">
 <h2>Posterior Results</h2>
 <pre class="r"><code>posterior_result &lt;- list()
-posterior_result$alpha_mean &lt;- sapply(1:76, function(g){mean(alpha_T[,g])})
-posterior_result$alpha_sd &lt;- sapply(1:76, function(g){sd(alpha_T[,g])})
-posterior_result$beta_mean &lt;- sapply(1:34, function(k){mean(beta_T[,k])})
-posterior_result$beta_sd &lt;- sapply(1:34, function(k){sd(beta_T[,k])})
+posterior_result$alpha_mean &lt;- sapply(1:76, function(g){mean(alpha_T[1000:T,g])})
+posterior_result$alpha_sd &lt;- sapply(1:76, function(g){sd(alpha_T[1000:T,g])})
+posterior_result$beta_mean &lt;- sapply(1:26, function(k){mean(beta_T[1000:T,k])})
+posterior_result$beta_sd &lt;- sapply(1:26, function(k){sd(beta_T[1000:T,k])})
 posterior_result$lambda_mean &lt;- mean(lambda_T)
 posterior_result$lambda_sd &lt;- sd(lambda_T)
 posterior_result$sigma2_mean &lt;- mean(sigma2_T)
-posterior_result$sigma2_sd &lt;- sd(sigma2_T)</code></pre>
-<pre class="r"><code>var.name &lt;- c(&quot;lambda&quot;, paste0(&quot;b1.&quot;, 1:17), paste0(&quot;b2.&quot;, 1:17), paste0(&quot;a&quot;, 1:76), &quot;sigma2&quot;)
+posterior_result$sigma2_sd &lt;- sd(sigma2_T)
+
+var.name &lt;- c(&quot;lambda&quot;, paste0(&quot;b1.&quot;, 1:13), paste0(&quot;b2.&quot;, 1:13), paste0(&quot;a&quot;, 1:76), &quot;sigma2&quot;)
 var.mean &lt;- c(posterior_result$lambda_mean, posterior_result$beta_mean, 
-          posterior_result$alpha_mean, posterior_result$lambda_mean)
+          posterior_result$alpha_mean, posterior_result$sigma2_mean)
 var.sd &lt;- c(posterior_result$lambda_sd, posterior_result$beta_sd, 
-          posterior_result$alpha_sd, posterior_result$lambda_sd)
+          posterior_result$alpha_sd, posterior_result$sigma2_sd)
 df &lt;- data.frame(cbind(var.name, var.mean, var.sd))
 kable(df)</code></pre>
 <table>
@@ -551,10 +551,10 @@ var.sd
 lambda
 </td>
 <td style="text-align:left;">
-0.0367265253277227
+-0.0710537033141572
 </td>
 <td style="text-align:left;">
-0.0420039190670355
+0.012464548424716
 </td>
 </tr>
 <tr>
@@ -562,10 +562,10 @@ lambda
 b1.1
 </td>
 <td style="text-align:left;">
--0.0452546057700732
+-0.113554941023781
 </td>
 <td style="text-align:left;">
-0.0409868522347619
+0.00465276699274121
 </td>
 </tr>
 <tr>
@@ -573,10 +573,10 @@ b1.1
 b1.2
 </td>
 <td style="text-align:left;">
--0.186555797617923
+-0.149187367707972
 </td>
 <td style="text-align:left;">
-0.109999552317209
+0.0356518707836379
 </td>
 </tr>
 <tr>
@@ -584,10 +584,10 @@ b1.2
 b1.3
 </td>
 <td style="text-align:left;">
-1.61303713030111
+-0.199337009468467
 </td>
 <td style="text-align:left;">
-1.27290856906996
+0.0504221151532631
 </td>
 </tr>
 <tr>
@@ -595,10 +595,10 @@ b1.3
 b1.4
 </td>
 <td style="text-align:left;">
-1.71824409061112
+-0.046484304077637
 </td>
 <td style="text-align:left;">
-1.30354249243278
+0.134241153180748
 </td>
 </tr>
 <tr>
@@ -606,10 +606,10 @@ b1.4
 b1.5
 </td>
 <td style="text-align:left;">
-1.85818798933384
+0.049383716485915
 </td>
 <td style="text-align:left;">
-1.35319943507961
+0.0746259316481662
 </td>
 </tr>
 <tr>
@@ -617,10 +617,10 @@ b1.5
 b1.6
 </td>
 <td style="text-align:left;">
-1.6656126694289
+-0.150508524343652
 </td>
 <td style="text-align:left;">
-1.29128845618166
+0.0686467762055688
 </td>
 </tr>
 <tr>
@@ -628,10 +628,10 @@ b1.6
 b1.7
 </td>
 <td style="text-align:left;">
-0.11753146177723
+-0.21656544513828
 </td>
 <td style="text-align:left;">
-0.0823776075040178
+0.0607440810459701
 </td>
 </tr>
 <tr>
@@ -639,10 +639,10 @@ b1.7
 b1.8
 </td>
 <td style="text-align:left;">
--0.209250175125241
+0.174924689710479
 </td>
 <td style="text-align:left;">
-0.137745704840575
+0.04003978550963
 </td>
 </tr>
 <tr>
@@ -650,10 +650,10 @@ b1.8
 b1.9
 </td>
 <td style="text-align:left;">
-0.226590250740572
+-0.0434152222922197
 </td>
 <td style="text-align:left;">
-0.131042103549815
+0.063945563128069
 </td>
 </tr>
 <tr>
@@ -661,10 +661,10 @@ b1.9
 b1.10
 </td>
 <td style="text-align:left;">
--0.0299864566286233
+0.129332416167067
 </td>
 <td style="text-align:left;">
-0.092935286484123
+0.184296510077861
 </td>
 </tr>
 <tr>
@@ -672,10 +672,10 @@ b1.10
 b1.11
 </td>
 <td style="text-align:left;">
-0.185863714287125
+-0.0999685186534055
 </td>
 <td style="text-align:left;">
-0.271430417305029
+0.063306012675116
 </td>
 </tr>
 <tr>
@@ -683,10 +683,10 @@ b1.11
 b1.12
 </td>
 <td style="text-align:left;">
--0.0649319583867153
+0.0170095328349132
 </td>
 <td style="text-align:left;">
-0.0947213775793088
+0.0493766681967421
 </td>
 </tr>
 <tr>
@@ -694,54 +694,10 @@ b1.12
 b1.13
 </td>
 <td style="text-align:left;">
-0.0440303758235325
+0.000980980779500061
 </td>
 <td style="text-align:left;">
-0.0714332978254052
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b1.14
-</td>
-<td style="text-align:left;">
-0.0207705144820595
-</td>
-<td style="text-align:left;">
-0.0637164043845747
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b1.15
-</td>
-<td style="text-align:left;">
-0.119469753528324
-</td>
-<td style="text-align:left;">
-0.0810756246742922
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b1.16
-</td>
-<td style="text-align:left;">
-1.77342290343379
-</td>
-<td style="text-align:left;">
-1.3289896472486
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b1.17
-</td>
-<td style="text-align:left;">
-0.0308394347154927
-</td>
-<td style="text-align:left;">
-0.0219796946358993
+0.0427463562649186
 </td>
 </tr>
 <tr>
@@ -749,10 +705,10 @@ b1.17
 b2.1
 </td>
 <td style="text-align:left;">
-0.00884482831525764
+0.0199652332566898
 </td>
 <td style="text-align:left;">
-0.00911362109843682
+0.00176064307924222
 </td>
 </tr>
 <tr>
@@ -760,10 +716,10 @@ b2.1
 b2.2
 </td>
 <td style="text-align:left;">
--0.0305192982251766
+-0.0540231323638193
 </td>
 <td style="text-align:left;">
-0.0360954380067629
+0.0224348132848696
 </td>
 </tr>
 <tr>
@@ -771,10 +727,10 @@ b2.2
 b2.3
 </td>
 <td style="text-align:left;">
--0.195109576429324
+-0.0510946553351318
 </td>
 <td style="text-align:left;">
-0.213201174540944
+0.0160313529410369
 </td>
 </tr>
 <tr>
@@ -782,10 +738,10 @@ b2.3
 b2.4
 </td>
 <td style="text-align:left;">
--0.187969295971621
+-0.0733520471548824
 </td>
 <td style="text-align:left;">
-0.238416329096274
+0.10708633989273
 </td>
 </tr>
 <tr>
@@ -793,10 +749,10 @@ b2.4
 b2.5
 </td>
 <td style="text-align:left;">
--0.220359405721262
+-0.0822760614839041
 </td>
 <td style="text-align:left;">
-0.226300678791303
+0.0425512428019085
 </td>
 </tr>
 <tr>
@@ -804,10 +760,10 @@ b2.5
 b2.6
 </td>
 <td style="text-align:left;">
--0.226687495450011
+-0.102247006968657
 </td>
 <td style="text-align:left;">
-0.223139156297817
+0.0371094952085602
 </td>
 </tr>
 <tr>
@@ -815,10 +771,10 @@ b2.6
 b2.7
 </td>
 <td style="text-align:left;">
-0.0255149215403105
+-0.145550705935087
 </td>
 <td style="text-align:left;">
-0.0394172091840002
+0.0381081394638324
 </td>
 </tr>
 <tr>
@@ -826,10 +782,10 @@ b2.7
 b2.8
 </td>
 <td style="text-align:left;">
--0.083888441885415
+0.0368400299226118
 </td>
 <td style="text-align:left;">
-0.0719380092216597
+0.0226490665813821
 </td>
 </tr>
 <tr>
@@ -837,10 +793,10 @@ b2.8
 b2.9
 </td>
 <td style="text-align:left;">
-0.00370830569681925
+0.0203756491316819
 </td>
 <td style="text-align:left;">
-0.0351437970136472
+0.0454068627312426
 </td>
 </tr>
 <tr>
@@ -848,10 +804,10 @@ b2.9
 b2.10
 </td>
 <td style="text-align:left;">
-0.0287319935706336
+0.0100168347647199
 </td>
 <td style="text-align:left;">
-0.0683906980626672
+0.143007542601797
 </td>
 </tr>
 <tr>
@@ -859,10 +815,10 @@ b2.10
 b2.11
 </td>
 <td style="text-align:left;">
--0.0808764023418198
+-0.106809367006341
 </td>
 <td style="text-align:left;">
-0.202208932469765
+0.0425829094139517
 </td>
 </tr>
 <tr>
@@ -870,10 +826,10 @@ b2.11
 b2.12
 </td>
 <td style="text-align:left;">
--0.0178358171507639
+-0.0176437661198612
 </td>
 <td style="text-align:left;">
-0.0645352238982227
+0.0278006999588764
 </td>
 </tr>
 <tr>
@@ -881,54 +837,10 @@ b2.12
 b2.13
 </td>
 <td style="text-align:left;">
--0.0165637168330797
+-0.00785467006923466
 </td>
 <td style="text-align:left;">
-0.0398656504927127
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b2.14
-</td>
-<td style="text-align:left;">
-0.00262327138950953
-</td>
-<td style="text-align:left;">
-0.0421469292625629
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b2.15
-</td>
-<td style="text-align:left;">
--0.00867636209844411
-</td>
-<td style="text-align:left;">
-0.0277225096882567
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b2.16
-</td>
-<td style="text-align:left;">
--0.158730008300808
-</td>
-<td style="text-align:left;">
-0.211877140084806
-</td>
-</tr>
-<tr>
-<td style="text-align:left;">
-b2.17
-</td>
-<td style="text-align:left;">
--0.0175462984127815
-</td>
-<td style="text-align:left;">
-0.0230631701228647
+0.0225721502172256
 </td>
 </tr>
 <tr>
@@ -936,10 +848,10 @@ b2.17
 a1
 </td>
 <td style="text-align:left;">
-1.70051424310833
+4.67345262326133
 </td>
 <td style="text-align:left;">
-1.2287093457364
+0.0537431997260243
 </td>
 </tr>
 <tr>
@@ -947,10 +859,10 @@ a1
 a2
 </td>
 <td style="text-align:left;">
-1.69772842765409
+4.82625263043647
 </td>
 <td style="text-align:left;">
-1.23185532888112
+0.0508228270343853
 </td>
 </tr>
 <tr>
@@ -958,10 +870,10 @@ a2
 a3
 </td>
 <td style="text-align:left;">
-1.69893071310963
+4.4377838793329
 </td>
 <td style="text-align:left;">
-1.23135445614694
+0.0578234040451005
 </td>
 </tr>
 <tr>
@@ -969,10 +881,10 @@ a3
 a4
 </td>
 <td style="text-align:left;">
-1.69831044226251
+5.21594790961834
 </td>
 <td style="text-align:left;">
-1.23237118168266
+0.0645903484579761
 </td>
 </tr>
 <tr>
@@ -980,10 +892,10 @@ a4
 a5
 </td>
 <td style="text-align:left;">
-1.70052251530845
+4.32015720471391
 </td>
 <td style="text-align:left;">
-1.23128535675068
+0.0537397903790524
 </td>
 </tr>
 <tr>
@@ -991,10 +903,10 @@ a5
 a6
 </td>
 <td style="text-align:left;">
-1.69949934091724
+4.5849820855493
 </td>
 <td style="text-align:left;">
-1.23097503480909
+0.0551005720936585
 </td>
 </tr>
 <tr>
@@ -1002,10 +914,10 @@ a6
 a7
 </td>
 <td style="text-align:left;">
-1.70030142673918
+4.42702686218676
 </td>
 <td style="text-align:left;">
-1.23258066857383
+0.0514257951663449
 </td>
 </tr>
 <tr>
@@ -1013,10 +925,10 @@ a7
 a8
 </td>
 <td style="text-align:left;">
-1.69702057141811
+4.85509566256782
 </td>
 <td style="text-align:left;">
-1.23133785082812
+0.0532822807779264
 </td>
 </tr>
 <tr>
@@ -1024,10 +936,10 @@ a8
 a9
 </td>
 <td style="text-align:left;">
-1.69873264658416
+4.66159914166323
 </td>
 <td style="text-align:left;">
-1.23154612978643
+0.0590911723139388
 </td>
 </tr>
 <tr>
@@ -1035,10 +947,10 @@ a9
 a10
 </td>
 <td style="text-align:left;">
-1.69928158777877
+4.68765384240928
 </td>
 <td style="text-align:left;">
-1.23077233180116
+0.0595120613040845
 </td>
 </tr>
 <tr>
@@ -1046,10 +958,10 @@ a10
 a11
 </td>
 <td style="text-align:left;">
-1.69954373081713
+4.49533485824617
 </td>
 <td style="text-align:left;">
-1.23363956121522
+0.0582700623250719
 </td>
 </tr>
 <tr>
@@ -1057,10 +969,10 @@ a11
 a12
 </td>
 <td style="text-align:left;">
-1.69847663458049
+4.56032353835002
 </td>
 <td style="text-align:left;">
-1.23077945873564
+0.0588038435390004
 </td>
 </tr>
 <tr>
@@ -1068,10 +980,10 @@ a12
 a13
 </td>
 <td style="text-align:left;">
-1.69928528813001
+4.75915592719978
 </td>
 <td style="text-align:left;">
-1.23244051795954
+0.06066814087439
 </td>
 </tr>
 <tr>
@@ -1079,10 +991,10 @@ a13
 a14
 </td>
 <td style="text-align:left;">
-1.69935075697578
+4.84733961257123
 </td>
 <td style="text-align:left;">
-1.22980679815899
+0.065642237026718
 </td>
 </tr>
 <tr>
@@ -1090,10 +1002,10 @@ a14
 a15
 </td>
 <td style="text-align:left;">
-1.69988630400851
+4.73694887603082
 </td>
 <td style="text-align:left;">
-1.23119868892228
+0.0483995019629972
 </td>
 </tr>
 <tr>
@@ -1101,10 +1013,10 @@ a15
 a16
 </td>
 <td style="text-align:left;">
-1.69847199521914
+4.81232964734848
 </td>
 <td style="text-align:left;">
-1.23251297842357
+0.0614395326037149
 </td>
 </tr>
 <tr>
@@ -1112,10 +1024,10 @@ a16
 a17
 </td>
 <td style="text-align:left;">
-1.69910146678241
+4.94405791608217
 </td>
 <td style="text-align:left;">
-1.23113505093527
+0.0652082492095878
 </td>
 </tr>
 <tr>
@@ -1123,10 +1035,10 @@ a17
 a18
 </td>
 <td style="text-align:left;">
-1.69878313483171
+4.98240925827725
 </td>
 <td style="text-align:left;">
-1.23152588378959
+0.0577636236414362
 </td>
 </tr>
 <tr>
@@ -1134,10 +1046,10 @@ a18
 a19
 </td>
 <td style="text-align:left;">
-1.6985565767999
+4.85804327030437
 </td>
 <td style="text-align:left;">
-1.23048013998326
+0.055453588097401
 </td>
 </tr>
 <tr>
@@ -1145,10 +1057,10 @@ a19
 a20
 </td>
 <td style="text-align:left;">
-1.69867173700193
+5.12008602238364
 </td>
 <td style="text-align:left;">
-1.23441532437684
+0.0651423828602537
 </td>
 </tr>
 <tr>
@@ -1156,10 +1068,10 @@ a20
 a21
 </td>
 <td style="text-align:left;">
-1.69952538347928
+4.57771411020943
 </td>
 <td style="text-align:left;">
-1.23047967380603
+0.0530992230211004
 </td>
 </tr>
 <tr>
@@ -1167,10 +1079,10 @@ a21
 a22
 </td>
 <td style="text-align:left;">
-1.69927711553115
+4.40595663086209
 </td>
 <td style="text-align:left;">
-1.23120979284138
+0.0536499501929821
 </td>
 </tr>
 <tr>
@@ -1178,10 +1090,10 @@ a22
 a23
 </td>
 <td style="text-align:left;">
-1.69938519072124
+4.80609794774357
 </td>
 <td style="text-align:left;">
-1.23276963537691
+0.0547145801722686
 </td>
 </tr>
 <tr>
@@ -1189,10 +1101,10 @@ a23
 a24
 </td>
 <td style="text-align:left;">
-1.70027414444559
+4.71318818281175
 </td>
 <td style="text-align:left;">
-1.23220151276038
+0.0566496547536401
 </td>
 </tr>
 <tr>
@@ -1200,10 +1112,10 @@ a24
 a25
 </td>
 <td style="text-align:left;">
-1.69992157724676
+5.01287172598958
 </td>
 <td style="text-align:left;">
-1.23316444162337
+0.0602900761288993
 </td>
 </tr>
 <tr>
@@ -1211,10 +1123,10 @@ a25
 a26
 </td>
 <td style="text-align:left;">
-1.6985174633367
+4.58617001261978
 </td>
 <td style="text-align:left;">
-1.23189309900051
+0.0694427657025822
 </td>
 </tr>
 <tr>
@@ -1222,10 +1134,10 @@ a26
 a27
 </td>
 <td style="text-align:left;">
-1.6979509055757
+4.45638807200514
 </td>
 <td style="text-align:left;">
-1.23125994491694
+0.0718617677572755
 </td>
 </tr>
 <tr>
@@ -1233,10 +1145,10 @@ a27
 a28
 </td>
 <td style="text-align:left;">
-1.69875966783447
+4.77573373027424
 </td>
 <td style="text-align:left;">
-1.22848187525459
+0.0615699507305066
 </td>
 </tr>
 <tr>
@@ -1244,10 +1156,10 @@ a28
 a29
 </td>
 <td style="text-align:left;">
-1.69884909684617
+4.97954717688772
 </td>
 <td style="text-align:left;">
-1.23206475257268
+0.065146984035562
 </td>
 </tr>
 <tr>
@@ -1255,10 +1167,10 @@ a29
 a30
 </td>
 <td style="text-align:left;">
-1.69939176743365
+5.10089126172421
 </td>
 <td style="text-align:left;">
-1.22906553125808
+0.0719714920506644
 </td>
 </tr>
 <tr>
@@ -1266,10 +1178,10 @@ a30
 a31
 </td>
 <td style="text-align:left;">
-1.69887675034192
+4.481272307893
 </td>
 <td style="text-align:left;">
-1.2301347480164
+0.0488757715484602
 </td>
 </tr>
 <tr>
@@ -1277,10 +1189,10 @@ a31
 a32
 </td>
 <td style="text-align:left;">
-1.69869416104623
+4.28645189448097
 </td>
 <td style="text-align:left;">
-1.23401757162211
+0.0550100938253438
 </td>
 </tr>
 <tr>
@@ -1288,10 +1200,10 @@ a32
 a33
 </td>
 <td style="text-align:left;">
-1.69970852866022
+4.4111246781795
 </td>
 <td style="text-align:left;">
-1.23106748726024
+0.0563266974570473
 </td>
 </tr>
 <tr>
@@ -1299,10 +1211,10 @@ a33
 a34
 </td>
 <td style="text-align:left;">
-1.70011507828197
+4.59695528894224
 </td>
 <td style="text-align:left;">
-1.23384075134482
+0.0550432118843408
 </td>
 </tr>
 <tr>
@@ -1310,10 +1222,10 @@ a34
 a35
 </td>
 <td style="text-align:left;">
-1.70001861685735
+4.6788776918253
 </td>
 <td style="text-align:left;">
-1.23202242898338
+0.0588021997768905
 </td>
 </tr>
 <tr>
@@ -1321,10 +1233,10 @@ a35
 a36
 </td>
 <td style="text-align:left;">
-1.69930563411671
+4.99042163777729
 </td>
 <td style="text-align:left;">
-1.23067010594968
+0.0597994255730237
 </td>
 </tr>
 <tr>
@@ -1332,10 +1244,10 @@ a36
 a37
 </td>
 <td style="text-align:left;">
-1.69951733696884
+4.6855257858296
 </td>
 <td style="text-align:left;">
-1.22966760767334
+0.0557815184436169
 </td>
 </tr>
 <tr>
@@ -1343,10 +1255,10 @@ a37
 a38
 </td>
 <td style="text-align:left;">
-1.70045244167476
+5.05076990699841
 </td>
 <td style="text-align:left;">
-1.23187017546958
+0.0537600538578
 </td>
 </tr>
 <tr>
@@ -1354,10 +1266,10 @@ a38
 a39
 </td>
 <td style="text-align:left;">
-1.70049203311266
+4.97609404819068
 </td>
 <td style="text-align:left;">
-1.23173759000493
+0.0493400200574603
 </td>
 </tr>
 <tr>
@@ -1365,10 +1277,10 @@ a39
 a40
 </td>
 <td style="text-align:left;">
-1.70015543357037
+5.03019943241053
 </td>
 <td style="text-align:left;">
-1.23070466641303
+0.0515927364651301
 </td>
 </tr>
 <tr>
@@ -1376,10 +1288,10 @@ a40
 a41
 </td>
 <td style="text-align:left;">
-1.70015263375773
+4.9700867343782
 </td>
 <td style="text-align:left;">
-1.23107251626812
+0.0559347171809471
 </td>
 </tr>
 <tr>
@@ -1387,10 +1299,10 @@ a41
 a42
 </td>
 <td style="text-align:left;">
-1.70062780514715
+4.92115997421679
 </td>
 <td style="text-align:left;">
-1.23080020127691
+0.0560398180462551
 </td>
 </tr>
 <tr>
@@ -1398,10 +1310,10 @@ a42
 a43
 </td>
 <td style="text-align:left;">
-1.69935477815506
+4.95541539177487
 </td>
 <td style="text-align:left;">
-1.2330968848683
+0.0593358277289247
 </td>
 </tr>
 <tr>
@@ -1409,10 +1321,10 @@ a43
 a44
 </td>
 <td style="text-align:left;">
-1.69848924686346
+4.93540332945823
 </td>
 <td style="text-align:left;">
-1.2304818865885
+0.0585960421501601
 </td>
 </tr>
 <tr>
@@ -1420,10 +1332,10 @@ a44
 a45
 </td>
 <td style="text-align:left;">
-1.69857771631752
+4.64853308478514
 </td>
 <td style="text-align:left;">
-1.23155606590452
+0.0573274977768139
 </td>
 </tr>
 <tr>
@@ -1431,10 +1343,10 @@ a45
 a46
 </td>
 <td style="text-align:left;">
-1.69870783939012
+4.70602429406838
 </td>
 <td style="text-align:left;">
-1.22877409706682
+0.0633195301802864
 </td>
 </tr>
 <tr>
@@ -1442,10 +1354,10 @@ a46
 a47
 </td>
 <td style="text-align:left;">
-1.70119316263638
+4.75522940276652
 </td>
 <td style="text-align:left;">
-1.23113161556309
+0.0660015770782252
 </td>
 </tr>
 <tr>
@@ -1453,10 +1365,10 @@ a47
 a48
 </td>
 <td style="text-align:left;">
-1.69894372226016
+4.72226600297732
 </td>
 <td style="text-align:left;">
-1.23094123520928
+0.0578072016308692
 </td>
 </tr>
 <tr>
@@ -1464,10 +1376,10 @@ a48
 a49
 </td>
 <td style="text-align:left;">
-1.69899338191402
+4.69773859827029
 </td>
 <td style="text-align:left;">
-1.22961373863431
+0.0548720634699287
 </td>
 </tr>
 <tr>
@@ -1475,10 +1387,10 @@ a49
 a50
 </td>
 <td style="text-align:left;">
-1.69970105413597
+4.90674328353052
 </td>
 <td style="text-align:left;">
-1.23018684025364
+0.0534325703062132
 </td>
 </tr>
 <tr>
@@ -1486,10 +1398,10 @@ a50
 a51
 </td>
 <td style="text-align:left;">
-1.70047906831916
+4.9579585974396
 </td>
 <td style="text-align:left;">
-1.22988951790637
+0.0588827438624594
 </td>
 </tr>
 <tr>
@@ -1497,10 +1409,10 @@ a51
 a52
 </td>
 <td style="text-align:left;">
-1.69867410223183
+4.64291941572245
 </td>
 <td style="text-align:left;">
-1.230211665129
+0.0595995822094144
 </td>
 </tr>
 <tr>
@@ -1508,10 +1420,10 @@ a52
 a53
 </td>
 <td style="text-align:left;">
-1.69883123054732
+4.62193775718735
 </td>
 <td style="text-align:left;">
-1.23497680665749
+0.0553541833927188
 </td>
 </tr>
 <tr>
@@ -1519,10 +1431,10 @@ a53
 a54
 </td>
 <td style="text-align:left;">
-1.6994358650913
+4.23690278466915
 </td>
 <td style="text-align:left;">
-1.23245294738836
+0.0550343876405184
 </td>
 </tr>
 <tr>
@@ -1530,10 +1442,10 @@ a54
 a55
 </td>
 <td style="text-align:left;">
-1.69895031948467
+4.81838538289324
 </td>
 <td style="text-align:left;">
-1.23208278748095
+0.0534392504904397
 </td>
 </tr>
 <tr>
@@ -1541,10 +1453,10 @@ a55
 a56
 </td>
 <td style="text-align:left;">
-1.70052998619432
+5.24742036915411
 </td>
 <td style="text-align:left;">
-1.23087522153501
+0.068178595551951
 </td>
 </tr>
 <tr>
@@ -1552,10 +1464,10 @@ a56
 a57
 </td>
 <td style="text-align:left;">
-1.69674567719686
+5.02428757074151
 </td>
 <td style="text-align:left;">
-1.22940165584853
+0.0629501116234604
 </td>
 </tr>
 <tr>
@@ -1563,10 +1475,10 @@ a57
 a58
 </td>
 <td style="text-align:left;">
-1.69780634875194
+5.05664125735965
 </td>
 <td style="text-align:left;">
-1.23367082181757
+0.0776908869608468
 </td>
 </tr>
 <tr>
@@ -1574,10 +1486,10 @@ a58
 a59
 </td>
 <td style="text-align:left;">
-1.69873058513835
+4.7065336478093
 </td>
 <td style="text-align:left;">
-1.23156401775213
+0.0618209358341331
 </td>
 </tr>
 <tr>
@@ -1585,10 +1497,10 @@ a59
 a60
 </td>
 <td style="text-align:left;">
-1.70012994010577
+4.73498902062283
 </td>
 <td style="text-align:left;">
-1.23223195177849
+0.0626143974167932
 </td>
 </tr>
 <tr>
@@ -1596,10 +1508,10 @@ a60
 a61
 </td>
 <td style="text-align:left;">
-1.69960569372612
+5.00268776301718
 </td>
 <td style="text-align:left;">
-1.23138432470521
+0.0605259139346803
 </td>
 </tr>
 <tr>
@@ -1607,10 +1519,10 @@ a61
 a62
 </td>
 <td style="text-align:left;">
-1.69783347447305
+4.47858705979626
 </td>
 <td style="text-align:left;">
-1.23003346492643
+0.0617035819230527
 </td>
 </tr>
 <tr>
@@ -1618,10 +1530,10 @@ a62
 a63
 </td>
 <td style="text-align:left;">
-1.69912320352672
+4.30079935323007
 </td>
 <td style="text-align:left;">
-1.23210013785244
+0.0572924681961756
 </td>
 </tr>
 <tr>
@@ -1629,10 +1541,10 @@ a63
 a64
 </td>
 <td style="text-align:left;">
-1.70036919366666
+4.3756729433986
 </td>
 <td style="text-align:left;">
-1.23007107732992
+0.0584035127868646
 </td>
 </tr>
 <tr>
@@ -1640,10 +1552,10 @@ a64
 a65
 </td>
 <td style="text-align:left;">
-1.69809470430032
+5.01805180657084
 </td>
 <td style="text-align:left;">
-1.23074074685559
+0.0506951257827606
 </td>
 </tr>
 <tr>
@@ -1651,10 +1563,10 @@ a65
 a66
 </td>
 <td style="text-align:left;">
-1.6986447148276
+4.43952973716114
 </td>
 <td style="text-align:left;">
-1.23118149617756
+0.0476569411126013
 </td>
 </tr>
 <tr>
@@ -1662,10 +1574,10 @@ a66
 a67
 </td>
 <td style="text-align:left;">
-1.69943113178239
+4.58144177990613
 </td>
 <td style="text-align:left;">
-1.23177482355055
+0.0516999060076628
 </td>
 </tr>
 <tr>
@@ -1673,10 +1585,10 @@ a67
 a68
 </td>
 <td style="text-align:left;">
-1.69919210640414
+4.67753735451022
 </td>
 <td style="text-align:left;">
-1.23191381182859
+0.0543183802359712
 </td>
 </tr>
 <tr>
@@ -1684,10 +1596,10 @@ a68
 a69
 </td>
 <td style="text-align:left;">
-1.69743241055897
+4.85373311691236
 </td>
 <td style="text-align:left;">
-1.23095092846562
+0.0480014256528961
 </td>
 </tr>
 <tr>
@@ -1695,10 +1607,10 @@ a69
 a70
 </td>
 <td style="text-align:left;">
-1.70068145952042
+5.02680405944441
 </td>
 <td style="text-align:left;">
-1.23168495725453
+0.0529316842652272
 </td>
 </tr>
 <tr>
@@ -1706,10 +1618,10 @@ a70
 a71
 </td>
 <td style="text-align:left;">
-1.69717456974198
+4.54267003900589
 </td>
 <td style="text-align:left;">
-1.23050093584013
+0.0488542189062313
 </td>
 </tr>
 <tr>
@@ -1717,10 +1629,10 @@ a71
 a72
 </td>
 <td style="text-align:left;">
-1.69878708376677
+4.74932271630642
 </td>
 <td style="text-align:left;">
-1.23340797575774
+0.0505997246727055
 </td>
 </tr>
 <tr>
@@ -1728,10 +1640,10 @@ a72
 a73
 </td>
 <td style="text-align:left;">
-1.69881513474867
+4.70991262747235
 </td>
 <td style="text-align:left;">
-1.23339230054578
+0.0588936662609654
 </td>
 </tr>
 <tr>
@@ -1739,10 +1651,10 @@ a73
 a74
 </td>
 <td style="text-align:left;">
-1.69906855326943
+4.62333463029941
 </td>
 <td style="text-align:left;">
-1.23147522719815
+0.0595028024703021
 </td>
 </tr>
 <tr>
@@ -1750,10 +1662,10 @@ a74
 a75
 </td>
 <td style="text-align:left;">
-1.69900979491053
+4.59708598057068
 </td>
 <td style="text-align:left;">
-1.23083403724896
+0.0571773650706397
 </td>
 </tr>
 <tr>
@@ -1761,10 +1673,10 @@ a75
 a76
 </td>
 <td style="text-align:left;">
-1.69913942609954
+4.24198227097138
 </td>
 <td style="text-align:left;">
-1.23130496923709
+0.0624647294236206
 </td>
 </tr>
 <tr>
@@ -1772,15 +1684,14 @@ a76
 sigma2
 </td>
 <td style="text-align:left;">
-0.0367265253277227
+0.552352766523083
 </td>
 <td style="text-align:left;">
-0.0420039190670355
+0.0188339582966957
 </td>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>write_csv(df, file = &quot;mcmc.csv&quot;)</code></pre>
 </div>
 </div>
 

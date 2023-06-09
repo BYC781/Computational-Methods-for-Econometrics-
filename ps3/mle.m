@@ -82,3 +82,6 @@ fmt=['standard error of beta2 =' repmat(' %.4f',1,numel(b2_se))];
 fprintf(fmt,b2_se);
 fprintf('\n');
 fprintf('coefficient of sigma2=%.4f, standard error of sigma2 = %.4f\n', sigma2,  sigma2_se );
+
+%%
+save('mle_result.mat','a_g','a_g_se', "b1", "b1_se", "b2", "b2_se", "lambda", "lambda_se", "sigma2", "sigma2_se")
