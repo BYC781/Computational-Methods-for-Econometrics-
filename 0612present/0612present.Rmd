@@ -1,7 +1,7 @@
 ---
-title: "Untitled"
+title: "Regression Shrinkage and Selection via the Lasso"
 author: "Boyu Chen"
-date: "`r Sys.Date()`"
+date: "`2023-06-12`"
 output: beamer_presentation
 ---
 
@@ -9,10 +9,14 @@ output: beamer_presentation
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
+## Introduction
+
+The "lasso" minimizes the residual sum of squares subject to the sum of the absolute value of the coefficients being less than a constant. Because of the nature of this constraint it tends to produce some coefficients that are exactly 0 and hence gives interpretable models.
+
 ## The LASSO
 
-Def. the data $(\mathbf{x}_i, y_i)$, $i = 1,2,...,N$
-where $\mathbf{x}_{ij}$ are standardized, s.t. $\frac{1}{N}\sum_i X_{ij} = 0$, $\frac{1}{N}\sum_i X_{ij}^2 = 1$
+Define the data $(\mathbf{x}_i, y_i)$, $i = 1,2,...,N$
+where $x_{ij}$ are standardized, s.t. $\frac{1}{N}\sum_i x_{ij} = 0$, $\frac{1}{N}\sum_i x_{ij}^2 = 1$
 Let $\hat{\boldsymbol{\beta}} = (\hat{\beta}_1, ..., \hat{\beta}_p)^T$, the LASSO estimate $(\hat{\alpha}, \hat{\boldsymbol{\beta}})$:
 
 \begin{equation}
@@ -31,16 +35,19 @@ The problem becomes:
 \boldsymbol{\hat\beta} := \arg\min \left\{ \sum_{i=1}^N (y_i - \sum_j \beta_j x_{ij})^2 \right\} \text{ s.t. } \sum_j|\beta_j| \leq t
 \end{equation}
 
+In matrix form:
 \begin{align*}
 \hat{\boldsymbol{\beta}} & := \arg\min_{\boldsymbol{\beta}} \left( (Y-X\boldsymbol{\beta})^T(Y- X\boldsymbol{\beta}) + \lambda || \boldsymbol{\beta}|| \right) \\
 & = \arg\min_{\boldsymbol{\beta}} \left( -Y^T X\boldsymbol{\beta} + \frac{1}{2} \boldsymbol{\beta}^T X^T X \boldsymbol{\beta} + \gamma ||\boldsymbol{\beta}|| \right)
 \end{align*}
 
+LASSO estimators have no closed form unless X is orthogonal.
+
 ## Orthogonal Design Case
 
-$X$ is orthogonal, i.e., $X^T X = I$, and then $\hat{\boldsymbol\beta}^o = X^T Y$.
+$X$ is orthogonal, i.e., $X^T X = I$, then OLS solution be $\hat{\boldsymbol\beta}^o = X^T Y$.
 \begin{align*}
-& \min_{\boldsymbol{\beta}} \quad -Y^T X\boldsymbol{\beta} + \boldsymbol{\beta}^T X^T X \boldsymbol{\beta} + \gamma ||\boldsymbol{\beta}|| \\
+& \min_{\boldsymbol{\beta}} \quad -Y^T X\boldsymbol{\beta} + \frac{1}{2}\boldsymbol{\beta}^T X^T X \boldsymbol{\beta} + \gamma ||\boldsymbol{\beta}|| \\
 \Rightarrow & \min_{\boldsymbol{\beta}} \quad -\hat{\boldsymbol{\beta}}^o \boldsymbol{\beta} + \frac{1}{2} \boldsymbol{\beta}^T \boldsymbol{\beta} + \gamma ||\boldsymbol{\beta}|| \\
 \Rightarrow & \min_{\boldsymbol{\beta}} \quad \sum_{i=1}^p -\hat{\boldsymbol{\beta}}^o \boldsymbol{\beta} + \frac{1}{2} \beta_i^2 + \gamma |\beta_i|
 \end{align*}
@@ -123,7 +130,7 @@ Let $Z_i = (x_i, y_i)$, $i = 1, \dots, n$. The steps for calculating the LASSO b
 -   Then we estimate the standard error of $\tilde{\boldsymbol{\beta}}^{(b)}$ as follows:
 
 $$
-SE(\tilde{\boldsymbol{\beta}}^{(b)}) = \sqrt{\frac{1}{B} \sum_{b=1}^{B} \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right) \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right)^T}
+SE(\tilde{\boldsymbol{\beta}}) = \sqrt{\frac{1}{B} \sum_{b=1}^{B} \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right) \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right)^T}
 $$
 
 
@@ -135,23 +142,26 @@ We rewrite the penalty constraint for the LASSO problem as
 \boldsymbol{\hat\beta} := \arg\min \left\{ \sum_{i=1}^N \left(y_i - \sum_j \beta_j x_{ij}\right)^2 \right\} \text{ s.t. } \frac{\sum_j|\beta_j|^2}{|\beta_j|}\leq t
 \end{equation}
 
-Hence, at the lasso estimate, we may approximate the solution by a ridge regression of the form $\boldsymbol{\beta}^* = (\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-1} )^{-1} \boldsymbol{X}^T \boldsymbol{Y}$.  
+Hence, at the lasso estimate, we may approximate the solution by a ridge regression of the form $\boldsymbol{\beta}^* = (\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-} )^{-1} \boldsymbol{X}^T \boldsymbol{Y}$.  
 
 
-where $\boldsymbol{W} = \text{diag}(|\hat\beta_j^{lasso}|)$, and $\boldsymbol{W}^{-1}$ denotes the generalized inverse of $\boldsymbol{W}$.
+where $\boldsymbol{W} = \text{diag}(|\hat\beta_j^{lasso}|)$, and $\boldsymbol{W}^{-}$ denotes the generalized inverse of $\boldsymbol{W}$.
 The covariance matrix of the estimates may then be approximated by
 
 \begin{equation}
-(\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-1})^{-1} \boldsymbol{X}^T\boldsymbol{X} (\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-1})^{-1} \hat\sigma^2
+(\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-})^{-1} \boldsymbol{X}^T\boldsymbol{X} (\boldsymbol{X}^T\boldsymbol{X} + \lambda \boldsymbol{W}^{-})^{-1} \hat\sigma^2
 \end{equation}
 
 
 ## 4. Prediction error and estimation of t
 
+Recall: t is the number of the non-zero predictors
+
 There are three methods:
-1. cross- validation
-2. generalized cross-validation
-3. Stein's unbiased risk estimation (SURE)
+
+1.  Cross-validation
+2.  Generalized cross-validation
+3.  Stein's unbiased risk estimation (SURE)
 
 ## Cross-validation
 
@@ -182,13 +192,13 @@ where $V$ is the population covariance matrix of $X$.
 We approximate the lasso solution by a ridge regression of the form
 
 \begin{equation}
-\boldsymbol{\beta}^* = (X^T X + \lambda W^{-1})^{-1} X^T Y
+\boldsymbol{\beta}^* = (X^T X + \lambda W^{-})^{-1} X^T Y
 \end{equation}
 
 Therefore the number of effective parameters in the constrained fit $\boldsymbol{\beta}^*$ may be approximated by 
 
 \begin{equation}
-\rho(t) = tr \left( X (X^T X + \lambda W^{-1})^{-1} X^T \right)
+\rho(t) = tr \left( X (X^T X + \lambda W^{-})^{-1} X^T \right)
 \end{equation}
 
 Letting $rss(t)$ be the residual sum of squares for the constrained fit with constraint $t$, we construct the generalized cross-validation style statistic
@@ -211,14 +221,14 @@ Denotes the estimated standard error of $\hat \beta_j^o$ by
 SE(\hat{\beta}^o_j) &= \hat{\tau} := \frac{\hat{\sigma}}{\sqrt{n}}, \hat{\sigma}^2 = \frac{\sum_{i=1}^N(y_i - \hat{y}_i)^2}{N-p}
 \end{align*}
 
-We may derive the formula as an approximately unbiased estimate of the risk:
+For the orthogonal case, we may derive the formula as an approximately unbiased estimate of the risk:
 \begin{equation}
 R(\hat{\boldsymbol{\beta}}(\gamma)) \approx \hat{\tau}^2 \left\{p - 2 \# \left(j: \frac{|\hat{\beta}_j^o|}{\hat{\tau}} < \gamma\right) + \sum_{j=1}^p \max \left(\left|\frac{\hat{\beta}_j^o}{\hat{\tau}}\right|, \gamma\right)^2\right\}
 \end{equation}
 
 ## Stein's Unbiased Risk Estimation (SURE)
 $$
-R(\hat{\boldsymbol{\beta}}(\gamma)) \approx \hat{\tau}^2 \left\{p - 2 \# \left(j: \frac{|\hat{\beta}_j^o|}{\hat{\tau}} < \gamma\right) + \sum_{j=1}^p \max \left(\left|\frac{\hat{\beta}_j^o}{\hat{\tau}}\right|, \gamma\right)^2\right\}
+R(\hat{\boldsymbol{\beta}}(\gamma)) \approx \hat{\tau}^2 \left\{p - 2 \# \left(j: \left|\frac{\hat{\beta}_j^o}{\hat{\tau}}\right| < \gamma\right) + \sum_{j=1}^p \max \left(\left|\frac{\hat{\beta}_j^o}{\hat{\tau}}\right|, \gamma\right)^2\right\}
 $$
 
 where $\hat{\beta}_j(\gamma) = \text{sgn}(\hat{\beta}_j^o) \left(\left|\frac{\hat{\beta}_j^o}{\hat{\tau}}\right| - \gamma\right)^+$
@@ -233,16 +243,20 @@ $$
 $$
 
 
+## Discussion for SURE
+
+Although the derivation of $\hat{t}$ assumes an orthogonal design, we may still try to use it in the usual non-orthogonal setting. Since the predictors have been standardized, the optimal value of $t$ is roughly a function of the overall signal-to-noise ratio in the data, and it should be relatively insensitive to the covariance of $\mathbf{X}$.
+
+The Stein method enjoys a significant computational advantage over the cross-validation-based estimate of $t$.
+
 ## 6. Algorithms for Finding LASSO Solutions
 
-We fix $t \geq 0$,
-\begin{align*}
-(\hat{\alpha}, \hat{\boldsymbol{\beta}}) &:= \arg\min \left\{ \sum_{i=1}^N (y_i - \alpha - \sum_j \beta_j x_{ij})^2 \right\} \text{ s.t. } \sum_j|\beta_i| \leq t \\
-\\
-\hat{\boldsymbol{\beta}} & = \arg\min \left\{ \sum_{i=1}^N \left(y_i - \sum_j \beta_j x_{ij}\right)^2 \right\} \text{ s.t. } \delta_i^T \boldsymbol{\beta} \leq t
-\end{align*}
-
-where $\boldsymbol{\delta}_i = (\pm1, \pm1, ..., \pm1) , i =1, 2,..., m$ be the $p$-tuples.
+We fix $t \geq 0$, the problem (12) can be expressed as a least squares problem with $2^p$ inequality constraints, corresponding to the $2^p$ different possible signs for the $\beta_j$s.
+\begin{align}
+(\hat{\alpha}, \hat{\boldsymbol{\beta}}) &:= \arg\min \left\{ \sum_{i=1}^N (y_i - \alpha - \sum_j \beta_j x_{ij})^2 \right\} \text{ s.t. } \sum_j|\beta_j| \leq t
+\end{align}
+Then the condition $\sum |\beta_j| \leq t$ is equivalent to $\boldsymbol{\delta}_i^T \boldsymbol{\beta} \leq t$ for all $i$.
+where $\boldsymbol{\delta}_i = (\pm1, \pm1, ..., \pm1) , i =1, 2,..., 2^p$ be the $p$-tuples.
 
 For a given $\boldsymbol{\beta}$, let equality set $E = \{i : \boldsymbol{\delta}_i^T \boldsymbol{\beta} = t\}$ and slack set $S = \{i : \boldsymbol{\delta}_i^T \boldsymbol{\beta}< t\}$
 
@@ -251,7 +265,7 @@ For a given $\boldsymbol{\beta}$, let equality set $E = \{i : \boldsymbol{\delta
 
 The algorithms starts with $E = \{i_0\}$  where $\boldsymbol{\delta}_{i0} = \text{sign}(\hat{\boldsymbol{\beta}}^o)$, $\hat{\boldsymbol{\beta}}^o$ being the overall LS estimate.
 
-Find $\hat{\beta}$ to minimize $\sum_{i=1}^N (y_i - \sum_j \beta_j x_{ij})^2$ s.t. $\delta_{i0}^T \boldsymbol{\beta} \leq t$
+### Algorithms
 
 While $\sum |\hat{\boldsymbol{\beta}}_j| >t$ :
 
@@ -260,7 +274,8 @@ While $\sum |\hat{\boldsymbol{\beta}}_j| >t$ :
 |           Find $\hat{\boldsymbol{\beta}}$ to minimize $g(\boldsymbol{\beta})$ s.t. $G_E \boldsymbol{\beta} \leq t \boldsymbol{1}$
 
 end  
-Where $G_E$ is the matrix whose rows are $\delta_i$ for $i \in E$
+where $G_E$ is the matrix whose rows are $\delta_i$ for $i \in E$ and  
+$\boldsymbol{1}$ is a vector of 1s of length equal to the number of rows of $G_E$.
 
 ## 7. Simulation 
 The author gave us four examples:
