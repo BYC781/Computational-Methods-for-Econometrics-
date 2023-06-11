@@ -127,7 +127,7 @@ Let $Z_i = (x_i, y_i)$, $i = 1, \dots, n$. The steps for calculating the LASSO b
 
 -   Draw a bootstrap sample ($\tilde{Z}_1^{(b)}, \dots, \tilde{Z}_n^{(b)}$) from ($Z_1, \dots, Z_n$).
 -   Perform LASSO and get the estimated coefficients $\tilde{\boldsymbol{\beta}}^{(b)}$ on ($\tilde{Z}_1^{(b)}, \dots, \tilde{Z}_n^{(b)}$).
--   Then we estimate the standard error of $\tilde{\boldsymbol{\beta}}^{(b)}$ as follows:
+-   Then we estimate the standard error of $\tilde{\boldsymbol{\beta}}$ as follows:
 
 $$
 SE(\tilde{\boldsymbol{\beta}}) = \sqrt{\frac{1}{B} \sum_{b=1}^{B} \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right) \left(\tilde{\beta}^{(b)} - \frac{1}{B} \sum_{r=1}^{B} \tilde{\beta}^{(r)}\right)^T}
